@@ -7,8 +7,14 @@ class Router
 {
     private array $handlers;
     private $notFoundHandler;
+    private $rootEndpoint;
     private const METHOD_POST = 'POST';
     private const METHOD_GET = 'GET';
+
+    public function __construct($rootEndpoint = '')
+    {
+        $this->rootEndpoint = $rootEndpoint;
+    }
 
     public function get(string $path, $handler): void
     {
@@ -29,7 +35,7 @@ class Router
     private function addHandler(string $method, string $path, $handler) : void
     {
         $this->handlers[$method . $path] = [
-            'path' => $path,
+            'path' =>  $this->rootEndpoint . $path,
             'method' => $method,
             'handler' => $handler,
         ];

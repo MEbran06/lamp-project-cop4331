@@ -29,5 +29,10 @@ class Request
         $data = json_decode(file_get_contents('php://input'));
         return $data;
     }
+
+    public function getQueryParams()
+    {
+        return $this->get;
+    }
 }
 ?>

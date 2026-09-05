@@ -1,29 +1,41 @@
 <?php 
 
 require_once __DIR__ . '/src/router.php';
+require_once __DIR__ . '/src/response.php';
 
-use App\{Router, Request};
+use App\{Router, Request, Response};
 
-$router = new Router();
+$router = new Router('/api');
 
-$router->get('/', function () {
-    echo 'Home Page';
+
+/*
+*  Simple health check
+*/
+$router->post('/health', function (Request $request) {
+    date_default_timezone_set('UTC');
+
+    $data = [
+        "status" => "success",
+        "timestamp" => date('Y-m-d H:i:s', time()),
+    ];
+
+    $res = new Response();
+    $res->sendJson(Response::STATUS_OK, $data);
 });
 
-$router->post('/info', function (Request $request) {
-    $data = $request->getBody();
 
-    http_response_code(200);
-    header('Content-Type: application/json; charset=utf-8');
-    echo json_encode($data);
-});
-
-$router->get('/about', function () {
-    echo 'About Page';
-});
-
+/*
+*  Handle endpoint requests to endpoints that don't exist
+*/
 $router->addNotFoundHandler(function() {
-    echo 'Not Found';
+    
+    $data = [
+        "status" => "failure",
+        "reason" => "endpoint not found"
+    ];
+    $res = new Response();
+    $res->sendJson(Response::STATUS_NOT_FOUND, $data);
+
 });
 
 $router->run();

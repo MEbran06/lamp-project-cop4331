@@ -1,4 +1,4 @@
-DirectoryIndex index.php
+DirectoryIndex index.html
 
 # enable apache rewrite engine
 RewriteEngine on
@@ -6,9 +6,10 @@ RewriteEngine on
 # set rewrite base
 RewriteBase /
 
-# Delive the folder or file directly if it exists on the server
+# push every request to the api to index.php
+RewriteRule ^api(.*)$ index.php [QSA,L]
+
+# route all other requests to index.html
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-
-# push every request to index.php
-RewriteRule ^(.*)$ index.php [QSA]
+RewriteRule ^ index.html [L]
