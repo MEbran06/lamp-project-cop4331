@@ -1,0 +1,40 @@
+<html>
+    <head>
+       <script type="text/javascript" src="js/utils.js"></script>
+        <script type="text/javascript">
+            document.addEventListener('DOMContentLoaded', function() {
+                readCookie();
+            }, false);
+        </script> 
+    </head>
+    <body>
+        <p>Hello</p>
+        <form id="logoutForm">
+            <div class="container">
+                <button type="submit">Logout</button>
+            </div>
+        </form>
+
+        <script>
+            const form = document.getElementById("logoutForm");
+
+            form.addEventListener('submit',event => {
+                event.preventDefault();
+
+                fetch("http://localhost:80/api/logout", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                }).then(res => res.json())
+                .then(data => {
+                    if (data.success)
+                    {
+                        doLogout();
+                    }
+                })
+                .catch(error => console.log(error));
+            });
+        </script>
+    </body>
+</html>

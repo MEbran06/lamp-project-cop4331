@@ -11,11 +11,11 @@ $router = new Router('/api');
 /*
 *  Simple health check
 */
-$router->post('/health', function (Request $request) {
+$router->get('/health', function (Request $request) {
     date_default_timezone_set('UTC');
 
     $data = [
-        "status" => "success",
+        "success" => true,
         "timestamp" => date('Y-m-d H:i:s', time()),
     ];
 
@@ -23,6 +23,104 @@ $router->post('/health', function (Request $request) {
     $res->sendJson(Response::STATUS_OK, $data);
 });
 
+/*
+* login router
+*/
+$router->post('/login', function (Request $request) {
+    // start session
+    session_start();
+    date_default_timezone_set('UTC');
+
+    // we expect a json body
+    $body = $request->getBody();
+    $res = new Response();
+    if ($body == null)
+    {
+        $res->sendJson(Response::STATUS_BAD_REQUEST, [
+            "success" => false,
+            "reason" => "json body could not be parsed"
+        ]);
+        // end the handler
+        return;
+    }
+    if (!array_key_exists('username', $body) || !array_key_exists('password', $body))
+    {
+        $res->sendJson(Response::STATUS_BAD_REQUEST, [
+            "success" => false,
+            "reason" => "useranme and password are not defined"
+        ]);
+        // end the handler
+        return;
+    }
+    
+    $username = $body['username'];
+    $password = $body['password'];
+
+    // check database
+    $user_id = 1;
+
+    // this should only happen if the user credentials are correct
+    $_SESSION['user_id'] = $user_id;
+    $_SESSION['loggedIn'] = true;
+    session_regenerate_id(true); 
+
+    $data = [
+        "success" => true,
+        "user_id" => $user_id,
+        "timestamp" => date('Y-m-d H:i:s', time())
+    ];
+
+    $res->sendJson(Response::STATUS_OK, $data);
+
+});
+
+$router->post("/logout", function () {
+    session_start();
+    date_default_timezone_set('UTC');
+    // Unset all of the session variables.
+    $_SESSION = array();
+
+    // delete the session cookie.
+    if (ini_get("session.use_cookies")) {
+        $params = session_get_cookie_params();
+        setcookie(session_name(), '', time() - 42000,
+            $params["path"], $params["domain"],
+            $params["secure"], $params["httponly"]
+        );
+    }
+
+    // destroy the session.
+    session_destroy();
+
+    $res = new Response();
+    $res->sendJson(Response::STATUS_OK, [
+        "success" => true,
+        "timestamp" => date('Y-m-d H:i:s', time()),
+    ]);
+});
+
+/*
+* get a protected resource
+*/
+$router->get("/resource", function() {
+    session_start();
+    date_default_timezone_set('UTC');
+    $res = new Response();
+    // check if the user isn't logged in
+    if (!isset($_SESSION['loggedIn']) || !$_SESSION['loggedIn'])
+    {
+        $res->sendJson(Response::STATUS_FORBIDDEN, [
+            "success" => false,
+            "reason" => "unauthorized access."
+        ]);
+        return;
+    }
+
+    $res->sendJson(Response::STATUS_OK, [
+        "success" => true,
+        "timestamp" => date('Y-m-d H:i:s', time()),
+    ]);
+});
 
 /*
 *  Handle endpoint requests to endpoints that don't exist
@@ -30,7 +128,7 @@ $router->post('/health', function (Request $request) {
 $router->addNotFoundHandler(function() {
     
     $data = [
-        "status" => "failure",
+        "success" => false,
         "reason" => "endpoint not found"
     ];
     $res = new Response();

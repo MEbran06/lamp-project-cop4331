@@ -1,7 +1,42 @@
 <html>
+    <head>
+        <script type="text/javascript" src="js/utils.js"></script>
+    </head>
     <body>
-        <p>
-            Hello World
-        </p>
+        <form id="loginForm">
+            <div class="container">
+                <input name="username" type="text" placeholder="Enter Username">
+                <input name="password" type="password" placeholder="Enter Password">
+
+                <button type="submit">Login</button>
+            </div>
+        </form>
+
+        <script>
+            const form = document.getElementById("loginForm");
+
+            form.addEventListener('submit',event => {
+                event.preventDefault();
+                const formData = new FormData(form);
+                const data = Object.fromEntries(formData);
+
+                fetch("http://localhost:80/api/login", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                }).then(res => res.json())
+                .then(data => {
+                    if (data.success)
+                    {
+                        saveCookie(data.user_id, 20);
+                        // send to another page
+                        window.location.href = "http://localhost:80/dashboard.html";
+                    }
+                })
+                .catch(error => console.log(error));
+            });
+        </script>
     </body>
 </html>
