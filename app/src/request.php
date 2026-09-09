@@ -32,7 +32,7 @@ class Request
                 return $decoded;
             }
         }
-        return $_POST ?? [];
+        return $this->post ?? [];
     }
 
     public function getQueryParams()
