@@ -20,7 +20,7 @@
                 const formData = new FormData(form);
                 const data = Object.fromEntries(formData);
 
-                fetch("http://localhost:80/api/login", {
+                fetch(baseUrl+"/api/login", {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -32,7 +32,7 @@
                     {
                         saveCookie(data.user_id, 20);
                         // send to another page
-                        window.location.href = "http://localhost:80/dashboard.html";
+                        window.location.href = baseUrl+"/dashboard.html";
                     }
                 })
                 .catch(error => console.log(error));

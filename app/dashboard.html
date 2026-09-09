@@ -21,7 +21,7 @@
             form.addEventListener('submit',event => {
                 event.preventDefault();
 
-                fetch("http://localhost:80/api/logout", {
+                fetch(baseUrl+"/api/logout", {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'

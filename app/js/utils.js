@@ -1,3 +1,5 @@
+const baseUrl = "http://localhost:80"
+
 function saveCookie(userId, minutes) {
   let date = new Date();
   date.setTime(date.getTime() + minutes * 60 * 1000);
