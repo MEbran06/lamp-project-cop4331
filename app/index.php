@@ -2,6 +2,7 @@
 
 require_once __DIR__ . '/src/router.php';
 require_once __DIR__ . '/src/response.php';
+require_once __DIR__ . '/config/db.php';
 
 use App\{Router, Request, Response};
 
@@ -27,8 +28,6 @@ $router->get('/health', function (Request $request) {
 * login router
 */
 $router->post('/login', function (Request $request) {
-    // start session
-    session_start();
     date_default_timezone_set('UTC');
 
     // we expect a json body
@@ -38,7 +37,7 @@ $router->post('/login', function (Request $request) {
     {
         $res->sendJson(Response::STATUS_BAD_REQUEST, [
             "success" => false,
-            "reason" => "json body could not be parsed"
+            "reason" => "body could not be parsed"
         ]);
         // end the handler
         return;
@@ -57,20 +56,40 @@ $router->post('/login', function (Request $request) {
     $password = $body['password'];
 
     // check database
-    $user_id = 1;
+    $db = getDB();
+    $sql = "SELECT user_id FROM User WHERE username = :uname AND password = :pass LIMIT 1";
+    $stmt = $db->prepare($sql);
+    $stmt->execute([':uname' => $username, ':pass' => $password]);
+    $user = $stmt->fetch();
 
-    // this should only happen if the user credentials are correct
-    $_SESSION['user_id'] = $user_id;
-    $_SESSION['loggedIn'] = true;
-    session_regenerate_id(true); 
+    // login success
+    if ($user)
+    {
+        // start the session
+        session_start();
+        // set session parameters
+        $user_id = (int) $user['user_id'];
+        $_SESSION['user_id'] = $user_id;
+        $_SESSION['loggedIn'] = true; 
 
-    $data = [
-        "success" => true,
-        "user_id" => $user_id,
-        "timestamp" => date('Y-m-d H:i:s', time())
-    ];
+        $data = [
+            "success" => true,
+            "user_id" => $user_id,
+            "timestamp" => date('Y-m-d H:i:s', time())
+        ];
 
-    $res->sendJson(Response::STATUS_OK, $data);
+        $res->sendJson(Response::STATUS_OK, $data);
+    }
+    else
+    {
+        // login failed
+        $res->sendJson(Response::STATUS_UNAUTHORIZED, [
+                'success'   => false,
+                'user_id'   => 0,
+                'error'     => 'No Records Found',
+                "timestamp" => date('Y-m-d H:i:s', time())
+            ]);
+    }
 
 });
 

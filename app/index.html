@@ -30,7 +30,8 @@
                 .then(data => {
                     if (data.success)
                     {
-                        saveCookie(data.user_id, 20);
+                        // mark user as logged in
+                        saveCookie(1, 20);
                         // send to another page
                         window.location.href = baseUrl+"/dashboard.html";
                     }

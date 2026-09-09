@@ -25,9 +25,14 @@ class Request
 
     public function getBody()
     {
-        // get the raw data from the request and decode it as a json
-        $data = json_decode(file_get_contents('php://input'), true);
-        return $data;
+        $rawInput = file_get_contents('php://input');
+        if (!empty($rawInput)) {
+            $decoded = json_decode($rawInput, true);
+            if (is_array($decoded)) {
+                return $decoded;
+            }
+        }
+        return $_POST ?? [];
     }
 
     public function getQueryParams()
