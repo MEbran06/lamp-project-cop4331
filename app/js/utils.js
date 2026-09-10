@@ -1,4 +1,4 @@
-const baseUrl = "http://localhost:80"
+const baseUrl = "https://webappsmanuel.xyz"
 
 function saveCookie(isLogged, minutes) {
   let date = new Date();
