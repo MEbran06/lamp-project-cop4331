@@ -1,11 +1,14 @@
 const baseUrl = "http://localhost:80"
+let csrf_token = "";
 
-function saveCookie(isLogged, minutes) {
+function saveCookie(isLogged, csrf_token, minutes) {
   let date = new Date();
   date.setTime(date.getTime() + minutes * 60 * 1000);
   document.cookie =
     "isLogged=" +
     isLogged +
+    ",csrf_token="+
+    csrf_token +
     ";expires=" +
     date.toGMTString() +
     ";path=/";
@@ -24,17 +27,15 @@ function readCookie()
             if (keyVal[0] === "isLogged") {
                 isLogged = parseInt(keyVal[1].trim());
             }
+            if (keyVal[0] === "csrf_token") {
+                csrf_token = keyVal[1].trim();
+            }
         }
     }
 
     if (isLogged == 0 || isNaN(isLogged)) {
-    window.location.href = "index.html";
-    } else {
-        let userNameEl = document.getElementById("userName");
-        if (userNameEl) {
-        userNameEl.innerHTML = '<span>user logged in</span>';
-        }
-    }
+        window.location.href = "index.html";
+    }  
 }
 
 function doLogout() {

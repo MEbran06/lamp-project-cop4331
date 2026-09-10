@@ -30,8 +30,8 @@
                 .then(data => {
                     if (data.success)
                     {
-                        // mark user as logged in
-                        saveCookie(1, 20);
+                        // mark user as logged in, and pass the csrf token
+                        saveCookie(1, data.csrf_token, 20);
                         // send to another page
                         window.location.href = baseUrl+"/dashboard.html";
                     }

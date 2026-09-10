@@ -1,4 +1,7 @@
 <?php
+require_once __DIR__ . '/../src/response.php';
+use App\Response;
+
 function loadEnv($path = null) {
     static $loaded = false;
     if ($loaded) {
@@ -47,5 +50,42 @@ function loadEnv($path = null) {
         }
     }
     $loaded = true;
+}
+
+/*
+* Utility function that handles validating the the csrf token. 
+* If not valid, terminates request and sends a response
+* Parameter: the current response object
+*/
+function validate_csrf($res)
+{
+    $header_token = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
+    if (!isset($_SESSION['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $header_token)) 
+    {
+        $res->sendJson(Response::STATUS_FORBIDDEN, [
+                'success'   => false,
+                'error'     => 'invalid CSRF token',
+                "timestamp" => date('Y-m-d H:i:s', time())
+            ]);
+        exit();
+    }
+}
+
+/*
+* Validate that the user is authenticated.
+* End the request and send a response if user is not logged in
+* Parameter: response object
+*/
+function check_auth($res)
+{
+    if (!isset($_SESSION['loggedIn']) || !$_SESSION['loggedIn'])
+    {
+        $res->sendJson(Response::STATUS_FORBIDDEN, [
+            "success" => false,
+            "error" => "unauthorized access.",
+            "timestamp" => date('Y-m-d H:i:s', time())
+        ]);
+        exit();
+    }
 }
 ?>

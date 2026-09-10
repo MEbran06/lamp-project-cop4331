@@ -3,6 +3,7 @@
 require_once __DIR__ . '/src/router.php';
 require_once __DIR__ . '/src/response.php';
 require_once __DIR__ . '/config/db.php';
+require_once __DIR__ . '/config/utils.php';
 
 use App\{Router, Request, Response};
 
@@ -65,16 +66,33 @@ $router->post('/login', function (Request $request) {
     // login success
     if ($user)
     {
+        // set some session parameters
+        session_set_cookie_params([
+            'lifetime' => 1200, // 1200 seconds = 20 minutes
+            'path' => '/',
+            'domain' => $_SERVER['HTTP_HOST'],
+            'secure' => true,
+            'httponly' => true,
+            'samesite' => 'Lax'
+        ]);
         // start the session
         session_start();
+        // allways regenerate the session id on login
+        session_regenerate_id(true);
+
         // set session parameters
         $user_id = (int) $user['user_id'];
         $_SESSION['user_id'] = $user_id;
         $_SESSION['loggedIn'] = true; 
+        // csrf protection
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 
+        
         $data = [
             "success" => true,
             "user_id" => $user_id,
+            // send over the csrf token for fronted to keep
+            "csrf_token" => $_SESSION['csrf_token'],
             "timestamp" => date('Y-m-d H:i:s', time())
         ];
 
@@ -96,6 +114,11 @@ $router->post('/login', function (Request $request) {
 $router->post("/logout", function () {
     session_start();
     date_default_timezone_set('UTC');
+    $res = new Response();
+
+    // validate csrf
+    validate_csrf($res);
+
     // Unset all of the session variables.
     $_SESSION = array();
 
@@ -111,7 +134,7 @@ $router->post("/logout", function () {
     // destroy the session.
     session_destroy();
 
-    $res = new Response();
+    
     $res->sendJson(Response::STATUS_OK, [
         "success" => true,
         "timestamp" => date('Y-m-d H:i:s', time()),
@@ -126,14 +149,9 @@ $router->get("/resource", function() {
     date_default_timezone_set('UTC');
     $res = new Response();
     // check if the user isn't logged in
-    if (!isset($_SESSION['loggedIn']) || !$_SESSION['loggedIn'])
-    {
-        $res->sendJson(Response::STATUS_FORBIDDEN, [
-            "success" => false,
-            "reason" => "unauthorized access."
-        ]);
-        return;
-    }
+    check_auth($res);
+    // validate csrf
+    validate_csrf($res);
 
     $res->sendJson(Response::STATUS_OK, [
         "success" => true,
