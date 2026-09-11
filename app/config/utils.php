@@ -88,4 +88,86 @@ function check_auth($res)
         exit();
     }
 }
+
+/*
+* Authenticate user function, this handles starting the session and its 
+* parameters
+*/
+function authenticateUser($user_id) 
+{
+    // start session so user is logged in right after signup
+    session_set_cookie_params([
+        'lifetime' => 1200, // 1200 seconds = 20 minutes
+        'path' => '/',
+        'secure' => true,
+        'httponly' => true,
+        'samesite' => 'Lax'
+    ]);
+    session_start();
+    // always regenerate the session on authentication
+    session_regenerate_id(true);
+
+    // set session parameters
+    $_SESSION['user_id'] = $user_id;
+    $_SESSION['loggedIn'] = true; 
+    // csrf protection
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
+function validateSignUp($body, $res)
+{
+    // check that username, password, first and last names are defined
+    if (!array_key_exists('username', $body) || 
+        !array_key_exists('password', $body) ||
+        !array_key_exists('firstname', $body) || 
+        !array_key_exists('lastname', $body))
+    {
+        $res->sendJson(Response::STATUS_BAD_REQUEST, [
+            "success" => false,
+            "reason" => "missing data fields"
+        ]);
+        // end the handler
+        exit();
+    }
+
+    // now check that first name, last name, and username are not empty strings
+    if (!is_string($body['username']) || $body['username'] === '' ||
+        !is_string($body['firstname']) || $body['firstname'] === '' ||
+        !is_string($body['lastname']) || $body['lastname'] === '')
+    {
+        $res->sendJson(Response::STATUS_BAD_REQUEST, [
+            "success" => false,
+            "reason" => "data fields are incorrect type or empty"
+        ]);
+        // end the handler
+        exit();
+    }
+
+    // now validate username: characters, digits, and {_, -, !, .} are allowed
+    $allowed = array(".", "-", "_", "!", "@");
+    $parsed = str_replace($allowed, '', $body['username'] );
+    // check if any invalid characters are in the username
+    if(!ctype_alnum(str_replace($allowed, '', $body['username'] ))) {
+
+        $res->sendJson(Response::STATUS_BAD_REQUEST, [
+            "success" => false,
+            "reason" => "username must only contain characters, digits, or .,-,_,!,@"
+        ]);
+        // end the handler
+        exit();
+    } 
+
+    // validate user password: at least 1 lowercase, 1 uppercase, 1 digit, and 1 special char
+    // minimum length should be 8
+    $pattern = '/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/';
+    if (!preg_match($pattern, $body['password'])) {
+        $res->sendJson(Response::STATUS_BAD_REQUEST, [
+            "success" => false,
+            "reason" => "password needs at least 1 upper and lower case character, a digit, and a special character and it must be at least 8 characters long"
+        ]);
+        // end the handler
+        exit();
+    } 
+
+}
 ?>
