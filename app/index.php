@@ -26,6 +26,64 @@ $router->get('/health', function (Request $request) {
 });
 
 /*
+* register users
+*/
+$router->post('/signup', function (Request $request) {
+    date_default_timezone_set('UTC');
+
+    // we need the json body
+    $body = $request->getBody();
+    $res = new Response();
+    if ($body == null)
+    {
+        $res->sendJson(Response::STATUS_BAD_REQUEST, [
+            "success" => false,
+            "reason" => "body could not be parsed"
+        ]);
+        // end the handler
+        return;
+    }
+    // validates signup or ends the request
+    validateSignUp($body, $res);
+
+    $hash = password_hash($body['password'], PASSWORD_DEFAULT);
+
+    try
+    {
+        // insert user into table
+        $db = getDB();
+        $sql = "INSERT INTO User (FirstName, LastName, UserName, Password) VALUES (:fname, :lname, :uname, :pass)";
+        $stmt = $db->prepare($sql);
+        $stmt->execute([':fname' => $body['firstname'],
+                        ':lname' => $body['lastname'],
+                        ':uname' => $body['username'],
+                        ':pass' => $hash]);
+    } catch (PDOException $e) {
+        // we failed to enter user
+        $res->sendJson(Response::STATUS_CONFLICT, [
+            "success" => false,
+            "error" => "Username already taken",
+            "timestamp" => date('Y-m-d H:i:s', time())
+        ]); 
+        return;
+    }
+    
+    $user_id = $db->lastInsertId();
+    // authenticate the user immidiately
+    authenticateUser($user_id);
+
+    // send response
+    $res->sendJson(Response::STATUS_CREATED, [
+        "success" => true,
+        "user_id" => $user_id,
+        "csrf_token" => $_SESSION['csrf_token'],
+        "timestamp" => date('Y-m-d H:i:s', time())
+    ]); 
+    
+
+});
+
+/*
 * login router
 */
 $router->post('/login', function (Request $request) {
@@ -58,36 +116,18 @@ $router->post('/login', function (Request $request) {
 
     // check database
     $db = getDB();
-    $sql = "SELECT user_id FROM User WHERE username = :uname AND password = :pass LIMIT 1";
+    $sql = "SELECT id, password FROM User WHERE username = :uname LIMIT 1";
     $stmt = $db->prepare($sql);
-    $stmt->execute([':uname' => $username, ':pass' => $password]);
+    $stmt->execute([':uname' => $username]);
     $user = $stmt->fetch();
 
-    // login success
-    if ($user)
+    // login succeds
+    if ($user && password_verify($password, $user['password']))
     {
-        // set some session parameters
-        session_set_cookie_params([
-            'lifetime' => 1200, // 1200 seconds = 20 minutes
-            'path' => '/',
-            'domain' => $_SERVER['HTTP_HOST'],
-            'secure' => true,
-            'httponly' => true,
-            'samesite' => 'Lax'
-        ]);
-        // start the session
-        session_start();
-        // allways regenerate the session id on login
-        session_regenerate_id(true);
+        // authenticate user
+        $user_id = (int) $user['id'];
+        authenticateUser($user_id);
 
-        // set session parameters
-        $user_id = (int) $user['user_id'];
-        $_SESSION['user_id'] = $user_id;
-        $_SESSION['loggedIn'] = true; 
-        // csrf protection
-        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-
-        
         $data = [
             "success" => true,
             "user_id" => $user_id,
@@ -104,7 +144,7 @@ $router->post('/login', function (Request $request) {
         $res->sendJson(Response::STATUS_UNAUTHORIZED, [
                 'success'   => false,
                 'user_id'   => 0,
-                'error'     => 'No Records Found',
+                'error'     => 'Username or Password incorrect or don\'t exits',
                 "timestamp" => date('Y-m-d H:i:s', time())
             ]);
     }
@@ -115,9 +155,6 @@ $router->post("/logout", function () {
     session_start();
     date_default_timezone_set('UTC');
     $res = new Response();
-
-    // validate csrf
-    validate_csrf($res);
 
     // Unset all of the session variables.
     $_SESSION = array();
