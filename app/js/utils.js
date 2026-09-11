@@ -40,6 +40,8 @@ function readCookie()
 
 function doLogout() {
   isLogged = 0;
+  csrf_token="";
+  document.cookie = "csrf_token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
   document.cookie = "isLogged=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
   window.location.href = "index.html";
 }
