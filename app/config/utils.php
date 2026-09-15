@@ -74,11 +74,33 @@ function validate_csrf($res)
 /*
 * Validate that the user is authenticated.
 * End the request and send a response if user is not logged in
-* Parameter: response object
+* Parameter $res: response object 
+* Parameter $restrict_to (optional): if false, only regular users may go through, 
+*                                    else only admins are allowed to go through
 */
-function check_auth($res)
+function check_auth($res, $restrict_to=false)
 {
     if (!isset($_SESSION['loggedIn']) || !$_SESSION['loggedIn'])
+    {
+        $res->sendJson(Response::STATUS_FORBIDDEN, [
+            "success" => false,
+            "error" => "unauthorized access.",
+            "timestamp" => date('Y-m-d H:i:s', time())
+        ]);
+        exit();
+    }
+    // only allow regular users to access this endpoint 
+    if (!$restrict_to && isset($_SESSION['is_admin']) && $_SESSION['is_admin'])
+    {
+        $res->sendJson(Response::STATUS_FORBIDDEN, [
+            "success" => false,
+            "error" => "unauthorized access.",
+            "timestamp" => date('Y-m-d H:i:s', time())
+        ]);
+        exit();
+    }
+    // only allow admin users to access this endpoint
+    if ($restrict_to && isset($_SESSION['is_admin']) && !$_SESSION['is_admin'])
     {
         $res->sendJson(Response::STATUS_FORBIDDEN, [
             "success" => false,
@@ -93,7 +115,7 @@ function check_auth($res)
 * Authenticate user function, this handles starting the session and its 
 * parameters
 */
-function authenticateUser($user_id) 
+function authenticateUser($user_id, $is_admin) 
 {
     // start session so user is logged in right after signup
     session_set_cookie_params([
@@ -109,6 +131,7 @@ function authenticateUser($user_id)
 
     // set session parameters
     $_SESSION['user_id'] = $user_id;
+    $_SESSION['is_admin'] = $is_admin;
     $_SESSION['loggedIn'] = true; 
     // csrf protection
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
