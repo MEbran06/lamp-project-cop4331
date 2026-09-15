@@ -69,8 +69,8 @@ $router->post('/signup', function (Request $request) {
     }
     
     $user_id = $db->lastInsertId();
-    // authenticate the user immidiately
-    authenticateUser($user_id);
+    // authenticate the user immidiately, we are not making them admin
+    authenticateUser($user_id, false);
 
     // send response
     $res->sendJson(Response::STATUS_CREATED, [
@@ -116,7 +116,7 @@ $router->post('/login', function (Request $request) {
 
     // check database
     $db = getDB();
-    $sql = "SELECT id, password FROM User WHERE username = :uname LIMIT 1";
+    $sql = "SELECT id, password, is_elevated FROM User WHERE username = :uname LIMIT 1";
     $stmt = $db->prepare($sql);
     $stmt->execute([':uname' => $username]);
     $user = $stmt->fetch();
@@ -126,11 +126,13 @@ $router->post('/login', function (Request $request) {
     {
         // authenticate user
         $user_id = (int) $user['id'];
-        authenticateUser($user_id);
+        $is_admin = (bool)$user['is_elevated'];
+        authenticateUser($user_id, $is_admin);
 
         $data = [
             "success" => true,
             "user_id" => $user_id,
+            "is_admin" => (bool)$user['is_elevated'],
             // send over the csrf token for fronted to keep
             "csrf_token" => $_SESSION['csrf_token'],
             "timestamp" => date('Y-m-d H:i:s', time())
@@ -143,7 +145,6 @@ $router->post('/login', function (Request $request) {
         // login failed
         $res->sendJson(Response::STATUS_UNAUTHORIZED, [
                 'success'   => false,
-                'user_id'   => 0,
                 'error'     => 'Username or Password incorrect or don\'t exits',
                 "timestamp" => date('Y-m-d H:i:s', time())
             ]);
@@ -185,7 +186,7 @@ $router->get("/resource", function() {
     session_start();
     date_default_timezone_set('UTC');
     $res = new Response();
-    // check if the user isn't logged in
+    // check if the user isn't logged in (restricts this endpoint for regular users)
     check_auth($res);
     // validate csrf
     validate_csrf($res);
