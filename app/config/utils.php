@@ -94,7 +94,7 @@ function check_auth($res, $restrict_to=false)
     {
         $res->sendJson(Response::STATUS_FORBIDDEN, [
             "success" => false,
-            "error" => "unauthorized access.",
+            "error" => "unauthorized access. Only non-admin users may access this resource",
             "timestamp" => date('Y-m-d H:i:s', time())
         ]);
         exit();
@@ -104,7 +104,7 @@ function check_auth($res, $restrict_to=false)
     {
         $res->sendJson(Response::STATUS_FORBIDDEN, [
             "success" => false,
-            "error" => "unauthorized access.",
+            "error" => "unauthorized access. Only admin users may access this resource",
             "timestamp" => date('Y-m-d H:i:s', time())
         ]);
         exit();
@@ -137,6 +137,21 @@ function authenticateUser($user_id, $is_admin)
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 
+function validatePassword($body, $res)
+{
+    // validate user password: at least 1 lowercase, 1 uppercase, 1 digit, and 1 special char
+    // minimum length should be 8
+    $pattern = '/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/';
+    if (!preg_match($pattern, $body['password'])) {
+        $res->sendJson(Response::STATUS_BAD_REQUEST, [
+            "success" => false,
+            "reason" => "password needs at least 1 upper and lower case character, a digit, and a special character and it must be at least 8 characters long"
+        ]);
+        // end the handler
+        exit();
+    } 
+}
+
 function validateSignUp($body, $res)
 {
     // check that username, password, first and last names are defined
@@ -153,8 +168,9 @@ function validateSignUp($body, $res)
         exit();
     }
 
-    // now check that first name, last name, and username are not empty strings
+    // now check that first name, last name, username, and password are not empty strings
     if (!is_string($body['username']) || $body['username'] === '' ||
+        !is_string($body['password']) || $body['password'] === '' ||
         !is_string($body['firstname']) || $body['firstname'] === '' ||
         !is_string($body['lastname']) || $body['lastname'] === '')
     {
@@ -180,17 +196,8 @@ function validateSignUp($body, $res)
         exit();
     } 
 
-    // validate user password: at least 1 lowercase, 1 uppercase, 1 digit, and 1 special char
-    // minimum length should be 8
-    $pattern = '/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/';
-    if (!preg_match($pattern, $body['password'])) {
-        $res->sendJson(Response::STATUS_BAD_REQUEST, [
-            "success" => false,
-            "reason" => "password needs at least 1 upper and lower case character, a digit, and a special character and it must be at least 8 characters long"
-        ]);
-        // end the handler
-        exit();
-    } 
+    // validate password
+    validatePassword($body, $res);
 
 }
 ?>
