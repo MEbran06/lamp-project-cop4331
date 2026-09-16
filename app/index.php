@@ -214,6 +214,86 @@ $router->post("/admin/set-password", function($request) {
 });
 
 /*
+* Retrive users' and their entried based on search
+*/
+$router->post("/admin/search", function($request) {
+    session_start();
+    date_default_timezone_set('UTC');
+    $res = new Response();
+    // check if the user isn't logged in (restricts this endpoint to admins)
+    check_auth($res, true);
+    // validate csrf
+    validate_csrf($res);
+
+    $body = $request->getBody();
+    if ($body == null)
+    {
+        $res->sendJson(Response::STATUS_BAD_REQUEST, [
+            "success" => false,
+            "reason" => "body could not be parsed"
+        ]);
+        return;
+    }
+    if (!array_key_exists('username', $body))
+    {
+        $res->sendJson(Response::STATUS_BAD_REQUEST, [
+            "success" => false,
+            "reason" => "missing data fields"
+        ]);
+        // end the handler
+        return;
+    }
+
+    // get the query parameters
+    $params = $request->getQueryParams();
+    $page = isset($params['page']) ? (int)$params['page'] : 1;
+    if ($page < 1) $page = 1;
+    $offset = ($page - 1) * 10; // hardcode limit to 10
+
+    // add the wildcard
+    $username = $body['username'] === "" ?  $body['username']: $body['username'] . "%";
+
+    // update user password
+    $db = getDB();
+    $sql = "SELECT 
+            User.firstname AS user_fname, 
+            User.lastname AS user_lname, 
+            User.username AS user_uname, 
+            CASE
+                WHEN COUNT(Contact.userid) = 0 THEN JSON_ARRAY()
+                ELSE JSON_ARRAYAGG(
+                    JSON_OBJECT(
+                        'contact_email', Contact.Email,
+                        'contact_fname', Contact.FirstName,
+                        'contact_lname', Contact.LastName,
+                        'contact_phone', Contact.Phone
+                    )
+                )
+            END AS contacts
+        FROM User 
+        LEFT JOIN Contact ON User.id = Contact.userid 
+        WHERE User.username LIKE :uname
+        GROUP BY User.id
+        LIMIT 10 OFFSET :offset;";
+    $stmt = $db->prepare($sql);
+    $stmt->execute([':uname' => $username,
+                    ':offset' => $offset]);
+    $users = [];
+
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $row['contacts'] = json_decode($row['contacts'] ?? '[]', true);
+        $users[] = $row;
+    }
+
+    $res->sendJson(Response::STATUS_OK, [
+        "success" => true,
+        "data" => $users,
+        "timestamp" => date('Y-m-d H:i:s', time()),
+    ]);
+
+});
+
+/*
 * login router
 */
 $router->post('/login', function ($request) {
