@@ -590,6 +590,15 @@ $router->get("/contact/search", function($request){
         // end the handler
         return;
     }
+    if (!array_key_exists('search', $body))
+    {
+        $res->sendJson(Response::STATUS_BAD_REQUEST, [
+            "success" => false,
+            "reason" => "`search` field required."
+        ]);
+        // end the handler
+        return;
+    }
     $db = getDB();
     $limit = 10;
     $params = $request->getQueryParams();
@@ -602,19 +611,33 @@ $router->get("/contact/search", function($request){
     $sql = '
     SELECT ID, FirstName, LastName, Email, Phone 
     FROM Contact WHERE UserID = :user_id
-    AND (FirstName LIKE :search OR LastName LIKE :search);
+    AND (FirstName LIKE :search_f OR LastName Like :search_l)
     LIMIT :limit OFFSET :offset';
+    $stmt = $db->prepare($sql);
     $stmt->execute([
-       ':search'    => $body['search'] . "%",
+        ':user_id'  => $userID,
+       ':search_f'    => $body['search'] . "%",
+       ':search_l'    => $body['search'] . "%",
         ':limit'    => $limit,
-        ':offset'   => $offset,
-        ':user_id'  => $userID
+        ':offset'   => $offset
     ]);
+    $contacts = $stmt->fetch();
 
-    $res->sendJson(Response::STATUS_OK, [
-        "success" => true,
-        "timestamp" => date('Y-m-d H:i:s', time()),
-    ]);
+    if ($contacts)
+    {
+        $res->sendJson(Response::STATUS_OK, [
+            "success" => true,
+            "data" => $contacts,
+            "timestamp" => date('Y-m-d H:i:s', time()),
+        ]);
+    }
+    else {
+        $res->sendJson(Response::STATUS_NOT_FOUND, [
+            "success" => false,
+            "error" => "Contacts not found",
+            "timestamp" => date('Y-m-d H:i:s', time()),
+        ]);
+    }
 });//end contact search
 /*
 *  Handle endpoint requests to endpoints that don't exist
