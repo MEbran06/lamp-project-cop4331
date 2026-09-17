@@ -592,25 +592,20 @@ $router->get("/contact/search", function($request){
     }
     $db = getDB();
     $limit = 10;
+    $params = $request->getQueryParams();
+    $page = isset($params['page']) ? (int)$params['page'] : 1;
+    if ($page < 1) $page = 1;
     $offset = ($page - 1) * $limit;
 
 
     //this might be wrong. Not exactly sure how DB is setup
     $sql = '
-    SELECT Contact_ID, FirstName, LastName, Email, Phone
-    FROM Contact
-    WHERE User_ID = :user_id
-    AND (
-        FirstName LIKE :search
-        OR LastName LIKE :search
-        OR Email LIKE :search
-        OR Phone LIKE :search
-        )
-    ORDER BY LastName, FirstName
-    LIMIT :limit OFFSET :offset
-    ';
+    SELECT ID, FirstName, LastName, Email, Phone 
+    FROM Contact WHERE UserID = :user_id
+    AND (FirstName LIKE :search OR LastName LIKE :search);
+    LIMIT :limit OFFSET :offset';
     $stmt->execute([
-       ':search'    => $body['search'],
+       ':search'    => $body['search'] . "%",
         ':limit'    => $limit,
         ':offset'   => $offset,
         ':user_id'  => $userID
