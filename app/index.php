@@ -436,7 +436,7 @@ $router->post("/contact/create", function($request){
     $userID = $_SESSION['user_id'];
     $db = getDB();
     //AI spit out a try catch version of my code when I was error checking:
-    try {
+
         $sql = "
         INSERT INTO Contact
         (FirstName, LastName, Email, Phone, User_ID)
@@ -445,6 +445,16 @@ $router->post("/contact/create", function($request){
         ";
 
         $stmt = $db->prepare($sql);
+
+        if (!array_key_exists('Email', $body) && !array_key_exists('Phone', $body))
+        {
+            $res->sendJson(Response::STATUS_BAD_REQUEST, [
+                "success" => false,
+                "reason" => "Email OR Phone required"
+            ]);
+            // end the handler
+            return;
+        }
 
         $stmt->execute([
             ':fname' => trim($body['FirstName']),
@@ -458,14 +468,7 @@ $router->post("/contact/create", function($request){
             'success' => true,
             'contact_id' => (int) $db->lastInsertId()
         ]);
-    } catch (PDOException $e) {
-        error_log($e->getMessage());
-        //we dont have a 500 yet, change to INTERNAL_ERROR later
-        $res->sendJson(500, [
-            'success' => false,
-            'reason' => 'could not create contact'
-        ]);
-    }
+
 });//end contact create
 
 $router->delete("/contact/delete", function($request){
