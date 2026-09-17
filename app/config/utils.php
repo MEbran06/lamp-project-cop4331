@@ -74,9 +74,11 @@ function validate_csrf($res)
 /*
 * Validate that the user is authenticated.
 * End the request and send a response if user is not logged in
-* Parameter: response object
+* Parameter $res: response object 
+* Parameter $restrict_to (optional): if false, only regular users may go through, 
+*                                    else only admins are allowed to go through
 */
-function check_auth($res)
+function check_auth($res, $restrict_to=false)
 {
     if (!isset($_SESSION['loggedIn']) || !$_SESSION['loggedIn'])
     {
@@ -87,13 +89,33 @@ function check_auth($res)
         ]);
         exit();
     }
+    // only allow regular users to access this endpoint 
+    if (!$restrict_to && isset($_SESSION['is_admin']) && $_SESSION['is_admin'])
+    {
+        $res->sendJson(Response::STATUS_FORBIDDEN, [
+            "success" => false,
+            "error" => "unauthorized access. Only non-admin users may access this resource",
+            "timestamp" => date('Y-m-d H:i:s', time())
+        ]);
+        exit();
+    }
+    // only allow admin users to access this endpoint
+    if ($restrict_to && isset($_SESSION['is_admin']) && !$_SESSION['is_admin'])
+    {
+        $res->sendJson(Response::STATUS_FORBIDDEN, [
+            "success" => false,
+            "error" => "unauthorized access. Only admin users may access this resource",
+            "timestamp" => date('Y-m-d H:i:s', time())
+        ]);
+        exit();
+    }
 }
 
 /*
 * Authenticate user function, this handles starting the session and its 
 * parameters
 */
-function authenticateUser($user_id) 
+function authenticateUser($user_id, $is_admin) 
 {
     // start session so user is logged in right after signup
     session_set_cookie_params([
@@ -109,9 +131,25 @@ function authenticateUser($user_id)
 
     // set session parameters
     $_SESSION['user_id'] = $user_id;
+    $_SESSION['is_admin'] = $is_admin;
     $_SESSION['loggedIn'] = true; 
     // csrf protection
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
+function validatePassword($body, $res)
+{
+    // validate user password: at least 1 lowercase, 1 uppercase, 1 digit, and 1 special char
+    // minimum length should be 8
+    $pattern = '/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/';
+    if (!preg_match($pattern, $body['password'])) {
+        $res->sendJson(Response::STATUS_BAD_REQUEST, [
+            "success" => false,
+            "reason" => "password needs at least 1 upper and lower case character, a digit, and a special character and it must be at least 8 characters long"
+        ]);
+        // end the handler
+        exit();
+    } 
 }
 
 function validateSignUp($body, $res)
@@ -130,8 +168,9 @@ function validateSignUp($body, $res)
         exit();
     }
 
-    // now check that first name, last name, and username are not empty strings
+    // now check that first name, last name, username, and password are not empty strings
     if (!is_string($body['username']) || $body['username'] === '' ||
+        !is_string($body['password']) || $body['password'] === '' ||
         !is_string($body['firstname']) || $body['firstname'] === '' ||
         !is_string($body['lastname']) || $body['lastname'] === '')
     {
@@ -157,17 +196,8 @@ function validateSignUp($body, $res)
         exit();
     } 
 
-    // validate user password: at least 1 lowercase, 1 uppercase, 1 digit, and 1 special char
-    // minimum length should be 8
-    $pattern = '/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/';
-    if (!preg_match($pattern, $body['password'])) {
-        $res->sendJson(Response::STATUS_BAD_REQUEST, [
-            "success" => false,
-            "reason" => "password needs at least 1 upper and lower case character, a digit, and a special character and it must be at least 8 characters long"
-        ]);
-        // end the handler
-        exit();
-    } 
+    // validate password
+    validatePassword($body, $res);
 
 }
 ?>

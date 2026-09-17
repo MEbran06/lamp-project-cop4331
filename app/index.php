@@ -13,7 +13,7 @@ $router = new Router('/api');
 /*
 *  Simple health check
 */
-$router->get('/health', function (Request $request) {
+$router->get('/health', function ($request) {
     date_default_timezone_set('UTC');
 
     $data = [
@@ -28,7 +28,7 @@ $router->get('/health', function (Request $request) {
 /*
 * register users
 */
-$router->post('/signup', function (Request $request) {
+$router->post('/signup', function ($request) {
     date_default_timezone_set('UTC');
 
     // we need the json body
@@ -69,8 +69,8 @@ $router->post('/signup', function (Request $request) {
     }
     
     $user_id = $db->lastInsertId();
-    // authenticate the user immidiately
-    authenticateUser($user_id);
+    // authenticate the user immidiately, we are not making them admin
+    authenticateUser($user_id, false);
 
     // send response
     $res->sendJson(Response::STATUS_CREATED, [
@@ -84,9 +84,219 @@ $router->post('/signup', function (Request $request) {
 });
 
 /*
+* sign up admin user (Only another admin can do this)
+*/
+$router->post("/admin/signup", function($request) {
+    session_start();
+    date_default_timezone_set('UTC');
+    $res = new Response();
+    // check if the user isn't logged in (restricts this endpoint for admin users only)
+    check_auth($res, true);
+    // validate csrf
+    validate_csrf($res);
+
+    $body = $request->getBody();
+    if ($body == null)
+    {
+        $res->sendJson(Response::STATUS_BAD_REQUEST, [
+            "success" => false,
+            "reason" => "body could not be parsed"
+        ]);
+        // end the handler
+        return;
+    }
+    // validates signup or ends the request
+    validateSignUp($body, $res);
+
+
+    $hash = password_hash($body['password'], PASSWORD_DEFAULT);
+
+    try
+    {
+        // insert user with elevated permissions into table
+        $db = getDB();
+        $sql = "INSERT INTO User (FirstName, LastName, UserName, Password, is_elevated) VALUES (:fname, :lname, :uname, :pass, 1)";
+        $stmt = $db->prepare($sql);
+        $stmt->execute([':fname' => $body['firstname'],
+                        ':lname' => $body['lastname'],
+                        ':uname' => $body['username'],
+                        ':pass' => $hash]);
+    } catch (PDOException $e) {
+        // we failed to enter user
+        $res->sendJson(Response::STATUS_CONFLICT, [
+            "success" => false,
+            "error" => "Username already taken",
+            "timestamp" => date('Y-m-d H:i:s', time())
+        ]); 
+        return;
+    }
+    
+    $user_id = $db->lastInsertId();
+    // send response
+    $res->sendJson(Response::STATUS_CREATED, [
+        "success" => true,
+        "user_id" => $user_id,
+        "timestamp" => date('Y-m-d H:i:s', time())
+    ]); 
+});
+
+/*
+* Change users' password (Admin Only)
+*/
+$router->post("/admin/set-password", function($request) {
+    session_start();
+    date_default_timezone_set('UTC');
+    $res = new Response();
+    // check if the user isn't logged in (restricts this endpoint to admins)
+    check_auth($res, true);
+    // validate csrf
+    validate_csrf($res);
+
+    $body = $request->getBody();
+    if ($body == null)
+    {
+        $res->sendJson(Response::STATUS_BAD_REQUEST, [
+            "success" => false,
+            "reason" => "body could not be parsed"
+        ]);
+        return;
+    }
+    // check that username and password are defined
+    if (!array_key_exists('username', $body) || !array_key_exists('password', $body))
+    {
+        $res->sendJson(Response::STATUS_BAD_REQUEST, [
+            "success" => false,
+            "reason" => "missing data fields"
+        ]);
+        // end the handler
+        return;
+    }
+    // check that username and password are not empty strings
+    if (!is_string($body['username']) || $body['username'] === '' ||
+        !is_string($body['password']) || $body['password'] === '' )
+    {
+        $res->sendJson(Response::STATUS_BAD_REQUEST, [
+            "success" => false,
+            "reason" => "data fields are incorrect type or empty"
+        ]);
+        // end the handler
+        return;
+    }
+
+    // validate user password
+    validatePassword($body, $res);
+
+    $hash = password_hash($body['password'],PASSWORD_DEFAULT);
+
+    // update user password
+    $db = getDB();
+    $sql = "UPDATE User SET password = :pass WHERE username = :uname LIMIT 1;";
+    $stmt = $db->prepare($sql);
+    $stmt->execute([':pass' => $hash,
+                    ':uname' => $body['username']]);
+
+    if ($stmt->rowCount() == 0)
+    {
+        $res->sendJson(Response::STATUS_NOT_FOUND, [
+            "success" => false,
+            "error" => "User could not be found, check that the username is correct.",
+            "timestamp" => date('Y-m-d H:i:s', time())
+        ]); 
+        return;
+    }
+
+    // send response
+    $res->sendJson(Response::STATUS_OK, [
+        "success" => true,
+        "timestamp" => date('Y-m-d H:i:s', time())
+    ]); 
+
+});
+
+/*
+* Retrive users' and their entried based on search
+*/
+$router->post("/admin/search", function($request) {
+    session_start();
+    date_default_timezone_set('UTC');
+    $res = new Response();
+    // check if the user isn't logged in (restricts this endpoint to admins)
+    check_auth($res, true);
+    // validate csrf
+    validate_csrf($res);
+
+    $body = $request->getBody();
+    if ($body == null)
+    {
+        $res->sendJson(Response::STATUS_BAD_REQUEST, [
+            "success" => false,
+            "reason" => "body could not be parsed"
+        ]);
+        return;
+    }
+    if (!array_key_exists('username', $body))
+    {
+        $res->sendJson(Response::STATUS_BAD_REQUEST, [
+            "success" => false,
+            "reason" => "missing data fields"
+        ]);
+        // end the handler
+        return;
+    }
+
+    // get the query parameters
+    $params = $request->getQueryParams();
+    $page = isset($params['page']) ? (int)$params['page'] : 1;
+    if ($page < 1) $page = 1;
+    $offset = ($page - 1) * 10; // hardcode limit to 10
+
+    // add the wildcard
+    $username = $body['username'] === "" ?  $body['username']: $body['username'] . "%";
+
+    // update user password
+    $db = getDB();
+    $sql = "SELECT 
+            User.firstname AS user_fname, 
+            User.lastname AS user_lname, 
+            User.username AS user_uname, 
+            CASE
+                WHEN COUNT(Contact.userid) = 0 THEN JSON_ARRAY()
+                ELSE JSON_ARRAYAGG(
+                    JSON_OBJECT(
+                        'contact_email', Contact.Email,
+                        'contact_fname', Contact.FirstName,
+                        'contact_lname', Contact.LastName,
+                        'contact_phone', Contact.Phone
+                    )
+                )
+            END AS contacts
+        FROM User 
+        LEFT JOIN Contact ON User.id = Contact.userid 
+        WHERE User.username LIKE :uname
+        GROUP BY User.id
+        LIMIT 10 OFFSET :offset;";
+    $stmt = $db->prepare($sql);
+    $stmt->execute([':uname' => $username,
+                    ':offset' => $offset]);
+    $users = [];
+
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $row['contacts'] = json_decode($row['contacts'] ?? '[]', true);
+        $users[] = $row;
+    }
+
+    $res->sendJson(Response::STATUS_OK, [
+        "success" => true,
+        "data" => $users,
+        "timestamp" => date('Y-m-d H:i:s', time()),
+    ]);
+
+});
+
+/*
 * login router
 */
-$router->post('/login', function (Request $request) {
+$router->post('/login', function ($request) {
     date_default_timezone_set('UTC');
 
     // we expect a json body
@@ -116,7 +326,7 @@ $router->post('/login', function (Request $request) {
 
     // check database
     $db = getDB();
-    $sql = "SELECT id, password FROM User WHERE username = :uname LIMIT 1";
+    $sql = "SELECT id, password, is_elevated FROM User WHERE username = :uname LIMIT 1";
     $stmt = $db->prepare($sql);
     $stmt->execute([':uname' => $username]);
     $user = $stmt->fetch();
@@ -126,11 +336,13 @@ $router->post('/login', function (Request $request) {
     {
         // authenticate user
         $user_id = (int) $user['id'];
-        authenticateUser($user_id);
+        $is_admin = (bool)$user['is_elevated'];
+        authenticateUser($user_id, $is_admin);
 
         $data = [
             "success" => true,
             "user_id" => $user_id,
+            "is_admin" => (bool)$user['is_elevated'],
             // send over the csrf token for fronted to keep
             "csrf_token" => $_SESSION['csrf_token'],
             "timestamp" => date('Y-m-d H:i:s', time())
@@ -143,7 +355,6 @@ $router->post('/login', function (Request $request) {
         // login failed
         $res->sendJson(Response::STATUS_UNAUTHORIZED, [
                 'success'   => false,
-                'user_id'   => 0,
                 'error'     => 'Username or Password incorrect or don\'t exits',
                 "timestamp" => date('Y-m-d H:i:s', time())
             ]);
@@ -185,7 +396,7 @@ $router->get("/resource", function() {
     session_start();
     date_default_timezone_set('UTC');
     $res = new Response();
-    // check if the user isn't logged in
+    // check if the user isn't logged in (restricts this endpoint for regular users)
     check_auth($res);
     // validate csrf
     validate_csrf($res);
