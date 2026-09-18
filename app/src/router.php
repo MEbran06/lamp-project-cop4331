@@ -10,6 +10,8 @@ class Router
     private $rootEndpoint;
     private const METHOD_POST = 'POST';
     private const METHOD_GET = 'GET';
+    private const METHOD_PUT = 'PUT';
+    private const METHOD_DELETE = 'DELETE';
 
     public function __construct($rootEndpoint = '')
     {
@@ -24,6 +26,18 @@ class Router
     public function post(string $path, $handler): void
     {
         $this->addHandler(self::METHOD_POST, $path, $handler);
+
+    }
+
+    public function put(string $path, $handler): void
+    {
+        $this->addHandler(self::METHOD_PUT, $path, $handler);
+
+    }
+
+    public function delete(string $path, $handler): void
+    {
+        $this->addHandler(self::METHOD_DELETE, $path, $handler);
 
     }
 

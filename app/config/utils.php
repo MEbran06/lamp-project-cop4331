@@ -200,4 +200,55 @@ function validateSignUp($body, $res)
     validatePassword($body, $res);
 
 }
+
+function validateContact($body, $res)
+{
+    // ensures there is at least a first and last name for the contact
+    if (!array_key_exists('firstname', $body) || !array_key_exists('lastname', $body) ||
+        $body['firstname'] === '' || $body['lastname'] === '')
+    {
+        $res->sendJson(Response::STATUS_BAD_REQUEST, [
+            "success" => false,
+            "reason" => "missing data fields"
+        ]);
+        // end the handler
+        exit();
+    }
+    if (!array_key_exists('email', $body) && !array_key_exists('phone', $body))
+    {
+        $res->sendJson(Response::STATUS_BAD_REQUEST, [
+            "success" => false,
+            "reason" => "Email OR Phone required"
+        ]);
+        // end the handler
+        exit();
+    }
+    // email validation
+    if (!filter_var($body['email'], FILTER_VALIDATE_EMAIL))
+    {
+        $res->sendJson(Response::STATUS_BAD_REQUEST, [
+            "success" => false,
+            "reason" => "Email format invalid"
+        ]);
+        // end the handler
+        exit();
+    }
+    $isPhoneNum = false;
+    $len = strlen($body['phone']);
+    //eliminate every char except 0-9
+    $justNums = preg_replace("/[^0-9]/", '', $body['phone']);
+    // if we are left with the same string, and that string contains 10 digits
+    // then we most likely have a valid phone number
+    if (strlen($justNums) == $len && $len == 10) $isPhoneNum = true;
+
+    if (!$isPhoneNum) 
+    {
+        $res->sendJson(Response::STATUS_BAD_REQUEST, [
+            "success" => false,
+            "reason" => "Phone number format invalid"
+        ]);
+        // end the handler
+        exit();
+    }
+}
 ?>

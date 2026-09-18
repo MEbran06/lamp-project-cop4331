@@ -263,6 +263,7 @@ $router->post("/admin/search", function($request) {
                 WHEN COUNT(Contact.userid) = 0 THEN JSON_ARRAY()
                 ELSE JSON_ARRAYAGG(
                     JSON_OBJECT(
+                        'contact_id', Contact.ID,
                         'contact_email', Contact.Email,
                         'contact_fname', Contact.FirstName,
                         'contact_lname', Contact.LastName,
@@ -406,6 +407,284 @@ $router->get("/resource", function() {
         "timestamp" => date('Y-m-d H:i:s', time()),
     ]);
 });
+
+$router->post("/contact/create", function($request){
+    session_start();
+    date_default_timezone_set('UTC');
+    $res = new Response();
+    check_auth($res);
+    validate_csrf($res);
+    $body = $request->getBody();
+    if ($body == null)
+    {
+        $res->sendJson(Response::STATUS_BAD_REQUEST, [
+            "success" => false,
+            "reason" => "body could not be parsed"
+        ]);
+        // end the handler
+        return;
+    }
+    // see utils.php for details
+    validateContact($body, $res);
+
+
+    $userID = $_SESSION['user_id'];
+    $db = getDB();
+    //AI spit out a try catch version of my code when I was error checking:
+    $sql = "
+    INSERT INTO Contact
+    (FirstName, LastName, Email, Phone, UserID)
+    VALUES
+    (:fname, :lname, :email, :phone, :uid);
+    ";
+
+    $stmt = $db->prepare($sql);
+    $stmt->execute([
+        ':fname' => trim($body['firstname']),
+        ':lname' => trim($body['lastname']),
+        ':email' => $body['email'] ?? null,
+        ':phone' => $body['phone'] ?? null,
+        ':uid'   => (int) $userID,
+    ]);
+
+    $res->sendJson(Response::STATUS_CREATED, [
+        'success' => true,
+        'contact_id' => (int) $db->lastInsertId()
+    ]);
+
+});//end contact create
+
+$router->delete("/contact/delete", function($request){
+    session_start();
+    date_default_timezone_set('UTC');
+    $res = new Response();
+    check_auth($res);
+    validate_csrf($res);
+    $userID = $_SESSION['user_id'];
+    $params = $request->getQueryParams();
+    // pass contact id as a query parameter
+    if (!array_key_exists('id', $params) || $params['id'] === '')
+    {
+        $res->sendJson(Response::STATUS_BAD_REQUEST, [
+            "success" => false,
+            "reason" => "contact ID parameter is required"
+        ]);
+        // end the handler
+        return;
+    }
+
+    $db = getDB();
+    $sql = "
+        DELETE FROM Contact
+        WHERE id = :contact_id
+        AND UserID = :user_id;
+        ";
+    $stmt = $db->prepare($sql);
+    //expects the ID for the contact being deleted to have been passed in the body
+    $stmt->execute([
+        ':contact_id' => $params['id'],
+        ':user_id' => (int) $userID
+    ]);
+    //if no rows are effected it lets you know
+    if ($stmt->rowCount() === 0) {
+        $res->sendJson(Response::STATUS_NOT_FOUND, [
+            'success' => false,
+            'reason' => 'contact not found'
+        ]);
+        return;
+    }
+
+    $res->sendJson(Response::STATUS_OK, [
+        'success' => true,
+        'message' => 'contact deleted'
+    ]);
+});//end contact delete
+
+//specifically expects all of the fields again
+$router->put("/contact/update", function($request){
+    session_start();
+    date_default_timezone_set('UTC');
+    $res = new Response();
+    check_auth($res);
+    validate_csrf($res);
+    $userID = $_SESSION['user_id'];
+    $db = getDB();
+
+    $body = $request->getBody();
+    $params = $request->getQueryParams();
+    if ($body == null)
+    {
+        $res->sendJson(Response::STATUS_BAD_REQUEST, [
+            "success" => false,
+            "reason" => "body could not be parsed"
+        ]);
+        // end the handler
+        return;
+    }
+    // pass contact id as a query parameter
+    if (!array_key_exists('id', $params) || $params['id'] === '')
+    {
+        $res->sendJson(Response::STATUS_BAD_REQUEST, [
+            "success" => false,
+            "reason" => "contact ID field is required"
+        ]);
+        // end the handler
+        return;
+    }
+    // see utils.php for details
+    validateContact($body, $res);
+
+    $sql = "
+    UPDATE Contact
+    SET
+    FirstName = :fname,
+    LastName  = :lname,
+    Email     = :email,
+    Phone     = :phone
+    WHERE ID = :contact_id
+    AND UserID = :user_id
+    ";
+
+    $stmt = $db->prepare($sql);
+
+    $stmt->execute([
+        ':fname'       => $body['firstname'],
+        ':lname'       => $body['lastname'],
+        ':email'       => $body['email'] ?? null,
+        ':phone'       => $body['phone'] ?? null,
+        ':contact_id'  => $params['id'],
+        ':user_id'     => $userID
+    ]);
+
+    //check that rows were affected
+    if ($stmt->rowCount() === 0) {
+        $res->sendJson(Response::STATUS_NOT_FOUND, [
+            'success' => false,
+            'reason' => 'contact not found or not owned by user'
+        ]);
+        return;
+    }
+
+    $res->sendJson(Response::STATUS_OK, [
+        "success" => true,
+        "timestamp" => date('Y-m-d H:i:s', time()),
+    ]);
+
+});//end contact update
+
+$router->get("/contact/search", function($request){
+    session_start();
+    date_default_timezone_set('UTC');
+    $res = new Response();
+    check_auth($res);
+    validate_csrf($res);
+    $userID = $_SESSION['user_id'];
+
+
+    $body = $request->getBody();
+    if ($body == null)
+    {
+        $res->sendJson(Response::STATUS_BAD_REQUEST, [
+            "success" => false,
+            "reason" => "body could not be parsed"
+        ]);
+        // end the handler
+        return;
+    }
+    if (!array_key_exists('search', $body))
+    {
+        $res->sendJson(Response::STATUS_BAD_REQUEST, [
+            "success" => false,
+            "reason" => "`search` field required."
+        ]);
+        // end the handler
+        return;
+    }
+    $db = getDB();
+    $limit = 10;
+    $params = $request->getQueryParams();
+    $page = isset($params['page']) ? (int)$params['page'] : 1;
+    if ($page < 1) $page = 1;
+    $offset = ($page - 1) * $limit;
+
+    $search = $body['search'] === '' ? '' : $body['search'] . "%";
+
+    //this might be wrong. Not exactly sure how DB is setup
+    $sql = '
+    SELECT ID, FirstName, LastName, Email, Phone 
+    FROM Contact WHERE UserID = :user_id
+    AND (FirstName LIKE :search_f OR LastName Like :search_l)
+    LIMIT :limit OFFSET :offset;';
+    $stmt = $db->prepare($sql);
+    $stmt->execute([
+        ':user_id'  => $userID,
+       ':search_f'    => $search,
+       ':search_l'    => $search,
+        ':limit'    => $limit,
+        ':offset'   => $offset
+    ]);
+    $contacts = [];
+
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $contacts[] = $row;
+    }
+
+    $res->sendJson(Response::STATUS_OK, [
+        "success" => true,
+        "data" => $contacts,
+        "timestamp" => date('Y-m-d H:i:s', time()),
+    ]);
+});//end contact search
+
+// search for a single contact by id (expects id query parameter)
+$router->get("/contact", function($request){
+    session_start();
+    date_default_timezone_set('UTC');
+    $res = new Response();
+    check_auth($res);
+    validate_csrf($res);
+    $userID = $_SESSION['user_id'];
+    $params = $request->getQueryParams();
+
+    if (!array_key_exists('id', $params) || $params['id'] === '')
+    {
+        $res->sendJson(Response::STATUS_BAD_REQUEST, [
+            "success" => false,
+            "reason" => "`id` parameter required."
+        ]);
+        // end the handler
+        return;
+    }
+    $db = getDB();
+
+    $sql = '
+    SELECT ID, FirstName, LastName, Email, Phone 
+    FROM Contact WHERE UserID = :user_id
+    AND id = :contact_id;';
+    $stmt = $db->prepare($sql);
+    $stmt->execute([
+        ':user_id'  => $userID,
+       ':contact_id'    => $params['id']
+    ]);
+    $contact = $stmt->fetch();
+
+    if ($contact)
+    {
+        $res->sendJson(Response::STATUS_OK, [
+            "success" => true,
+            "data" => $contact,
+            "timestamp" => date('Y-m-d H:i:s', time()),
+        ]);
+    }
+    else {
+        $res->sendJson(Response::STATUS_NOT_FOUND, [
+            "success" => false,
+            "error" => "Contact not found or not owned by User",
+            "timestamp" => date('Y-m-d H:i:s', time()),
+        ]);
+    }
+});
+
 
 /*
 *  Handle endpoint requests to endpoints that don't exist
