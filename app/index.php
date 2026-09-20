@@ -330,12 +330,12 @@ $router->get("/admin/search/{id}", function($request) {
     validate_csrf($res);
 
     // get the query parameters
-    $userId = $request->getParamByName('id');
+    $userId = (int)$request->getParamByName('id');
     if (!$userId)
     {
         $res->sendJson(Response::STATUS_BAD_REQUEST, [
             "success" => false,
-            "reason" => "user id required.",
+            "reason" => "invalid user id.",
             "timestamp" => date('Y-m-d H:i:s', time())
         ]);
         // end the handler
@@ -379,7 +379,7 @@ $router->get("/admin/search/{id}", function($request) {
     else {
         $res->sendJson(Response::STATUS_NOT_FOUND, [
             "success" => false,
-            "error" => "User not found",
+            "error" => "user not found",
             "timestamp" => date('Y-m-d H:i:s', time()),
         ]);
     }
@@ -535,13 +535,14 @@ $router->delete("/contact/delete/{id}", function($request){
     check_auth($res);
     validate_csrf($res);
     $userID = $_SESSION['user_id'];
-    $contactId = $request->getParamByName('id');
+    $contactId = (int)$request->getParamByName('id');
     // pass contact id as a query parameter
     if (!$contactId)
     {
         $res->sendJson(Response::STATUS_BAD_REQUEST, [
             "success" => false,
-            "reason" => "contact ID parameter is required"
+            "reason" => "invalid contact id.",
+            "timestamp" => date('Y-m-d H:i:s', time()),
         ]);
         // end the handler
         return;
@@ -563,14 +564,16 @@ $router->delete("/contact/delete/{id}", function($request){
     if ($stmt->rowCount() === 0) {
         $res->sendJson(Response::STATUS_NOT_FOUND, [
             'success' => false,
-            'reason' => 'contact not found'
+            'reason' => 'contact not found',
+            "timestamp" => date('Y-m-d H:i:s', time())
         ]);
         return;
     }
 
     $res->sendJson(Response::STATUS_OK, [
         'success' => true,
-        'message' => 'contact deleted'
+        'message' => 'contact deleted',
+        "timestamp" => date('Y-m-d H:i:s', time())
     ]);
 });//end contact delete
 
@@ -589,18 +592,20 @@ $router->put("/contact/update/{id}", function($request){
     {
         $res->sendJson(Response::STATUS_BAD_REQUEST, [
             "success" => false,
-            "reason" => "body could not be parsed"
+            "reason" => "body could not be parsed",
+            "timestamp" => date('Y-m-d H:i:s', time()),
         ]);
         // end the handler
         return;
     }
-    $contactId = $request->getParamByName('id');
+    $contactId = (int)$request->getParamByName('id');
     // pass contact id as a query parameter
     if (!$contactId)
     {
         $res->sendJson(Response::STATUS_BAD_REQUEST, [
             "success" => false,
-            "reason" => "contact ID field is required"
+            "reason" => "invalid contact id.",
+            "timestamp" => date('Y-m-d H:i:s', time()),
         ]);
         // end the handler
         return;
@@ -634,7 +639,8 @@ $router->put("/contact/update/{id}", function($request){
     if ($stmt->rowCount() === 0) {
         $res->sendJson(Response::STATUS_NOT_FOUND, [
             'success' => false,
-            'reason' => 'contact not found or not owned by user'
+            'reason' => 'contact not found or not owned by user',
+            "timestamp" => date('Y-m-d H:i:s', time()),
         ]);
         return;
     }
@@ -660,7 +666,8 @@ $router->get("/contact/search", function($request){
     {
         $res->sendJson(Response::STATUS_BAD_REQUEST, [
             "success" => false,
-            "reason" => "body could not be parsed"
+            "reason" => "body could not be parsed",
+            "timestamp" => date('Y-m-d H:i:s', time())
         ]);
         // end the handler
         return;
@@ -669,7 +676,8 @@ $router->get("/contact/search", function($request){
     {
         $res->sendJson(Response::STATUS_BAD_REQUEST, [
             "success" => false,
-            "reason" => "`search` field missing or required."
+            "reason" => "`search` field missing or required.",
+            "timestamp" => date('Y-m-d H:i:s', time())
         ]);
         // end the handler
         return;
@@ -734,13 +742,13 @@ $router->get("/contact/search/{id}", function($request){
     check_auth($res);
     validate_csrf($res);
     $userID = $_SESSION['user_id'];
-    $contactId = $request->getParamByName('id');
+    $contactId = (int)$request->getParamByName('id');
 
     if (!$contactId)
     {
         $res->sendJson(Response::STATUS_BAD_REQUEST, [
             "success" => false,
-            "reason" => "contact id required."
+            "reason" => "ivalid contact id."
         ]);
         // end the handler
         return;
@@ -783,7 +791,8 @@ $router->addNotFoundHandler(function() {
     
     $data = [
         "success" => false,
-        "reason" => "endpoint not found"
+        "reason" => "endpoint not found",
+        "timestamp" => date('Y-m-d H:i:s', time()),
     ];
     $res = new Response();
     $res->sendJson(Response::STATUS_NOT_FOUND, $data);
