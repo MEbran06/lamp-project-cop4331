@@ -69,7 +69,7 @@ $router->post('/signup', function ($request) {
     }
     
     $user_id = $db->lastInsertId();
-    // authenticate the user immidiately, we are not making them admin
+    // authenticate the user immidiately, we are not making them admin default to enabled
     authenticateUser($user_id, false);
 
     // send response
@@ -419,36 +419,60 @@ $router->post('/login', function ($request) {
 
     // check database
     $db = getDB();
-    $sql = "SELECT id, password, is_elevated FROM User WHERE username = :uname LIMIT 1";
+    $sql = "SELECT id, password, is_elevated, is_enabled FROM User WHERE username = :uname LIMIT 1";
     $stmt = $db->prepare($sql);
     $stmt->execute([':uname' => $username]);
     $user = $stmt->fetch();
 
     // login succeds
-    if ($user && password_verify($password, $user['password']))
+    if ($user)
     {
-        // authenticate user
-        $user_id = (int) $user['id'];
-        $is_admin = (bool)$user['is_elevated'];
-        authenticateUser($user_id, $is_admin);
+        $is_enabled = (bool)$user['is_enabled'];
+        // ensure the user is enabled
+        if (!$is_enabled)
+        {
+            $res->sendJson(Response::STATUS_UNAUTHORIZED, [
+                    'success'   => false,
+                    'error'     => 'user has been disabled. Contact an admin to be enabled.',
+                    "timestamp" => date('Y-m-d H:i:s', time())
+                ]);
+            return;
+        }
 
-        $data = [
-            "success" => true,
-            "user_id" => $user_id,
-            "is_admin" => (bool)$user['is_elevated'],
-            // send over the csrf token for fronted to keep
-            "csrf_token" => $_SESSION['csrf_token'],
-            "timestamp" => date('Y-m-d H:i:s', time())
-        ];
+        if (password_verify($password, $user['password']))
+        {
+            // authenticate user
+            $user_id = (int) $user['id'];
+            $is_admin = (bool)$user['is_elevated'];
+            authenticateUser($user_id, $is_admin);
 
-        $res->sendJson(Response::STATUS_OK, $data);
+            $data = [
+                "success" => true,
+                "user_id" => $user_id,
+                "is_admin" => (bool)$user['is_elevated'],
+                // send over the csrf token for fronted to keep
+                "csrf_token" => $_SESSION['csrf_token'],
+                "timestamp" => date('Y-m-d H:i:s', time())
+            ];
+
+            $res->sendJson(Response::STATUS_OK, $data);
+        }
+        else
+        {
+            // login failed
+            $res->sendJson(Response::STATUS_UNAUTHORIZED, [
+                    'success'   => false,
+                    'error'     => 'Username or Password incorrect',
+                    "timestamp" => date('Y-m-d H:i:s', time())
+                ]);
+        }
     }
-    else
+    else 
     {
         // login failed
         $res->sendJson(Response::STATUS_UNAUTHORIZED, [
                 'success'   => false,
-                'error'     => 'Username or Password incorrect or don\'t exits',
+                'error'     => 'user doesn\'t exist.',
                 "timestamp" => date('Y-m-d H:i:s', time())
             ]);
     }
