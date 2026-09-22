@@ -8,6 +8,7 @@ class Request
     private array $cookie;
     private array $files;
     private array $server;
+    private array $params = [];
 
     public function __construct( 
         array $get,
@@ -38,6 +39,16 @@ class Request
     public function getQueryParams()
     {
         return $this->get;
+    }
+
+    public function setParams(array $params)
+    {
+        $this->params = $params;
+    }
+
+    public function getParamByName($name)
+    {
+        return $this->params[$name] ?? null;
     }
 }
 ?>
