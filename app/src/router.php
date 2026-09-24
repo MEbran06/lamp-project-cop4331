@@ -10,6 +10,8 @@ class Router
     private $rootEndpoint;
     private const METHOD_POST = 'POST';
     private const METHOD_GET = 'GET';
+    private const METHOD_PUT = 'PUT';
+    private const METHOD_DELETE = 'DELETE';
 
     public function __construct($rootEndpoint = '')
     {
@@ -27,6 +29,18 @@ class Router
 
     }
 
+    public function put(string $path, $handler): void
+    {
+        $this->addHandler(self::METHOD_PUT, $path, $handler);
+
+    }
+
+    public function delete(string $path, $handler): void
+    {
+        $this->addHandler(self::METHOD_DELETE, $path, $handler);
+
+    }
+
     public function addNotFoundHandler($handler): void
     {
         $this->notFoundHandler = $handler;
@@ -34,11 +48,29 @@ class Router
 
     private function addHandler(string $method, string $path, $handler) : void
     {
-        $this->handlers[$method . $path] = [
-            'path' =>  $this->rootEndpoint . $path,
+        $compiled = $this->compilePath($this->rootEndpoint . $path);
+        $this->handlers[$method . $this->rootEndpoint . $path] = [
+            'path' =>  $compiled,
             'method' => $method,
             'handler' => $handler,
         ];
+    }
+
+    // replace {} with regex group matching for a path
+    private function compilePath(string $path): string
+    {
+        $regex = preg_replace_callback(
+            '#\{(\w+)\}|([^{]+)#', // match {} or just normal string literal
+            function ($m) {
+                if (isset($m[2])) {
+                    return preg_quote($m[2], '#'); // literal part so ignore
+                }
+                return '(?P<' . $m[1] . '>[^/]+)';
+            },
+            $path
+        );
+
+        return '#^' . $regex . '$#';
     }
 
     public function run()
@@ -48,9 +80,23 @@ class Router
         $method = $_SERVER['REQUEST_METHOD'];
         
         $callback = null;
-        foreach ($this->handlers as $handler) {
-            if ($handler['path'] === $requestPath && $method === $handler['method']) {
-                $callback = $handler['handler'];
+        $params = [];
+        $key = $method . $requestPath;
+        if (isset($this->handlers[$key])) {
+            $callback = $this->handlers[$key]['handler'];
+        }
+        else 
+        {
+            foreach ($this->handlers as $handler) 
+            {
+                if ($handler['method'] === $method &&
+                    preg_match($handler['path'], $requestPath, $matches)) 
+                {
+                    $callback = $handler['handler'];
+                    // only keep the named parameters
+                    $params = array_filter($matches, 'is_string', ARRAY_FILTER_USE_KEY);
+                    break;
+                }
             }
         }
 
@@ -63,6 +109,7 @@ class Router
 
         // make the request object here
         $request = new Request($_GET, $_POST, $_COOKIE, $_FILES, $_SERVER);
+        $request->setParams($params);
 
         call_user_func($callback, $request);
     }

@@ -69,7 +69,7 @@ $router->post('/signup', function ($request) {
     }
     
     $user_id = $db->lastInsertId();
-    // authenticate the user immidiately, we are not making them admin
+    // authenticate the user immidiately, we are not making them admin default to enabled
     authenticateUser($user_id, false);
 
     // send response
@@ -230,15 +230,17 @@ $router->post("/admin/search", function($request) {
     {
         $res->sendJson(Response::STATUS_BAD_REQUEST, [
             "success" => false,
-            "reason" => "body could not be parsed"
+            "reason" => "body could not be parsed",
+             "timestamp" => date('Y-m-d H:i:s', time())
         ]);
         return;
     }
-    if (!array_key_exists('username', $body))
+    if (!array_key_exists('username', $body) || !is_string($body['username']))
     {
         $res->sendJson(Response::STATUS_BAD_REQUEST, [
             "success" => false,
-            "reason" => "missing data fields"
+            "reason" => "invalid username",
+            "timestamp" => date('Y-m-d H:i:s', time())
         ]);
         // end the handler
         return;
@@ -246,16 +248,35 @@ $router->post("/admin/search", function($request) {
 
     // get the query parameters
     $params = $request->getQueryParams();
+    $limit = 10; // number of rows per page
     $page = isset($params['page']) ? (int)$params['page'] : 1;
     if ($page < 1) $page = 1;
-    $offset = ($page - 1) * 10; // hardcode limit to 10
+    $offset = ($page - 1) * $limit;
 
     // add the wildcard
     $username = $body['username'] === "" ?  $body['username']: $body['username'] . "%";
 
     // update user password
     $db = getDB();
+
+    // get page data
+    $countStmt = $db->prepare("SELECT COUNT(*) FROM User WHERE username LIKE :uname;");
+    $countStmt->execute([
+        ':uname' => $username
+    ]);
+    $total = (int) $countStmt->fetchColumn();
+    $totalPages = (int) ceil($total / $limit);
+
+    // add the page matadata
+    $meta = [
+        'current_page' => $page,
+        'per_page' => $limit,
+        'total' => $total,
+        'total_pages' => $totalPages,
+    ];
+
     $sql = "SELECT 
+            User.id AS user_id,
             User.firstname AS user_fname, 
             User.lastname AS user_lname, 
             User.username AS user_uname, 
@@ -263,6 +284,7 @@ $router->post("/admin/search", function($request) {
                 WHEN COUNT(Contact.userid) = 0 THEN JSON_ARRAY()
                 ELSE JSON_ARRAYAGG(
                     JSON_OBJECT(
+                        'contact_id', Contact.ID,
                         'contact_email', Contact.Email,
                         'contact_fname', Contact.FirstName,
                         'contact_lname', Contact.LastName,
@@ -274,10 +296,11 @@ $router->post("/admin/search", function($request) {
         LEFT JOIN Contact ON User.id = Contact.userid 
         WHERE User.username LIKE :uname
         GROUP BY User.id
-        LIMIT 10 OFFSET :offset;";
+        LIMIT :limit OFFSET :offset;";
     $stmt = $db->prepare($sql);
     $stmt->execute([':uname' => $username,
-                    ':offset' => $offset]);
+                    ':offset' => $offset,
+                    ':limit' => $limit]);
     $users = [];
 
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -288,8 +311,78 @@ $router->post("/admin/search", function($request) {
     $res->sendJson(Response::STATUS_OK, [
         "success" => true,
         "data" => $users,
+        "meta" => $meta,
         "timestamp" => date('Y-m-d H:i:s', time()),
     ]);
+
+});
+
+/*
+* Admin search user by Id
+*/
+$router->get("/admin/search/{id}", function($request) {
+    session_start();
+    date_default_timezone_set('UTC');
+    $res = new Response();
+    // check if the user isn't logged in (restricts this endpoint to admins)
+    check_auth($res, true);
+    // validate csrf
+    validate_csrf($res);
+
+    // get the query parameters
+    $userId = (int)$request->getParamByName('id');
+    if (!$userId)
+    {
+        $res->sendJson(Response::STATUS_BAD_REQUEST, [
+            "success" => false,
+            "reason" => "invalid user id.",
+            "timestamp" => date('Y-m-d H:i:s', time())
+        ]);
+        // end the handler
+        return;
+    }
+    $db = getDB();
+
+    $sql = "SELECT 
+            User.id AS user_id,
+            User.firstname AS user_fname, 
+            User.lastname AS user_lname, 
+            User.username AS user_uname, 
+            CASE
+                WHEN COUNT(Contact.userid) = 0 THEN JSON_ARRAY()
+                ELSE JSON_ARRAYAGG(
+                    JSON_OBJECT(
+                        'contact_id', Contact.ID,
+                        'contact_email', Contact.Email,
+                        'contact_fname', Contact.FirstName,
+                        'contact_lname', Contact.LastName,
+                        'contact_phone', Contact.Phone
+                    )
+                )
+            END AS contacts
+        FROM User 
+        LEFT JOIN Contact ON User.id = Contact.userid 
+        WHERE User.id = :user_id GROUP BY User.id;";
+    $stmt = $db->prepare($sql);
+    $stmt->execute([':user_id' => $userId]);
+    $user = $stmt->fetch();
+
+    if ($user)
+    {
+        $user['contacts'] = json_decode($user['contacts'], true);
+        $res->sendJson(Response::STATUS_OK, [
+            "success" => true,
+            "data" => $user,
+            "timestamp" => date('Y-m-d H:i:s', time()),
+        ]);
+    }
+    else {
+        $res->sendJson(Response::STATUS_NOT_FOUND, [
+            "success" => false,
+            "error" => "user not found",
+            "timestamp" => date('Y-m-d H:i:s', time()),
+        ]);
+    }
 
 });
 
@@ -326,36 +419,60 @@ $router->post('/login', function ($request) {
 
     // check database
     $db = getDB();
-    $sql = "SELECT id, password, is_elevated FROM User WHERE username = :uname LIMIT 1";
+    $sql = "SELECT id, password, is_elevated, is_enabled FROM User WHERE username = :uname LIMIT 1";
     $stmt = $db->prepare($sql);
     $stmt->execute([':uname' => $username]);
     $user = $stmt->fetch();
 
     // login succeds
-    if ($user && password_verify($password, $user['password']))
+    if ($user)
     {
-        // authenticate user
-        $user_id = (int) $user['id'];
-        $is_admin = (bool)$user['is_elevated'];
-        authenticateUser($user_id, $is_admin);
+        $is_enabled = (bool)$user['is_enabled'];
+        // ensure the user is enabled
+        if (!$is_enabled)
+        {
+            $res->sendJson(Response::STATUS_UNAUTHORIZED, [
+                    'success'   => false,
+                    'error'     => 'user has been disabled. Contact an admin to be enabled.',
+                    "timestamp" => date('Y-m-d H:i:s', time())
+                ]);
+            return;
+        }
 
-        $data = [
-            "success" => true,
-            "user_id" => $user_id,
-            "is_admin" => (bool)$user['is_elevated'],
-            // send over the csrf token for fronted to keep
-            "csrf_token" => $_SESSION['csrf_token'],
-            "timestamp" => date('Y-m-d H:i:s', time())
-        ];
+        if (password_verify($password, $user['password']))
+        {
+            // authenticate user
+            $user_id = (int) $user['id'];
+            $is_admin = (bool)$user['is_elevated'];
+            authenticateUser($user_id, $is_admin);
 
-        $res->sendJson(Response::STATUS_OK, $data);
+            $data = [
+                "success" => true,
+                "user_id" => $user_id,
+                "is_admin" => (bool)$user['is_elevated'],
+                // send over the csrf token for fronted to keep
+                "csrf_token" => $_SESSION['csrf_token'],
+                "timestamp" => date('Y-m-d H:i:s', time())
+            ];
+
+            $res->sendJson(Response::STATUS_OK, $data);
+        }
+        else
+        {
+            // login failed
+            $res->sendJson(Response::STATUS_UNAUTHORIZED, [
+                    'success'   => false,
+                    'error'     => 'Username or Password incorrect',
+                    "timestamp" => date('Y-m-d H:i:s', time())
+                ]);
+        }
     }
-    else
+    else 
     {
         // login failed
         $res->sendJson(Response::STATUS_UNAUTHORIZED, [
                 'success'   => false,
-                'error'     => 'Username or Password incorrect or don\'t exits',
+                'error'     => 'user doesn\'t exist.',
                 "timestamp" => date('Y-m-d H:i:s', time())
             ]);
     }
@@ -389,23 +506,307 @@ $router->post("/logout", function () {
     ]);
 });
 
-/*
-* get a protected resource
-*/
-$router->get("/resource", function() {
+$router->post("/contact/create", function($request){
     session_start();
     date_default_timezone_set('UTC');
     $res = new Response();
-    // check if the user isn't logged in (restricts this endpoint for regular users)
     check_auth($res);
-    // validate csrf
     validate_csrf($res);
+    $body = $request->getBody();
+    if ($body == null)
+    {
+        $res->sendJson(Response::STATUS_BAD_REQUEST, [
+            "success" => false,
+            "reason" => "body could not be parsed"
+        ]);
+        // end the handler
+        return;
+    }
+    // see utils.php for details
+    validateContact($body, $res);
+
+
+    $userID = $_SESSION['user_id'];
+    $db = getDB();
+    //AI spit out a try catch version of my code when I was error checking:
+    $sql = "
+    INSERT INTO Contact
+    (FirstName, LastName, Email, Phone, UserID)
+    VALUES
+    (:fname, :lname, :email, :phone, :uid);
+    ";
+
+    $stmt = $db->prepare($sql);
+    $stmt->execute([
+        ':fname' => trim($body['firstname']),
+        ':lname' => trim($body['lastname']),
+        ':email' => $body['email'] ?? null,
+        ':phone' => $body['phone'] ?? null,
+        ':uid'   => (int) $userID,
+    ]);
+
+    $res->sendJson(Response::STATUS_CREATED, [
+        'success' => true,
+        'contact_id' => (int) $db->lastInsertId()
+    ]);
+
+});//end contact create
+
+$router->delete("/contact/delete/{id}", function($request){
+    session_start();
+    date_default_timezone_set('UTC');
+    $res = new Response();
+    check_auth($res);
+    validate_csrf($res);
+    $userID = $_SESSION['user_id'];
+    $contactId = (int)$request->getParamByName('id');
+    // pass contact id as a query parameter
+    if (!$contactId)
+    {
+        $res->sendJson(Response::STATUS_BAD_REQUEST, [
+            "success" => false,
+            "reason" => "invalid contact id.",
+            "timestamp" => date('Y-m-d H:i:s', time()),
+        ]);
+        // end the handler
+        return;
+    }
+
+    $db = getDB();
+    $sql = "
+        DELETE FROM Contact
+        WHERE id = :contact_id
+        AND UserID = :user_id;
+        ";
+    $stmt = $db->prepare($sql);
+    //expects the ID for the contact being deleted to have been passed in the body
+    $stmt->execute([
+        ':contact_id' => $contactId,
+        ':user_id' => (int) $userID
+    ]);
+    //if no rows are effected it lets you know
+    if ($stmt->rowCount() === 0) {
+        $res->sendJson(Response::STATUS_NOT_FOUND, [
+            'success' => false,
+            'reason' => 'contact not found',
+            "timestamp" => date('Y-m-d H:i:s', time())
+        ]);
+        return;
+    }
+
+    $res->sendJson(Response::STATUS_OK, [
+        'success' => true,
+        'message' => 'contact deleted',
+        "timestamp" => date('Y-m-d H:i:s', time())
+    ]);
+});//end contact delete
+
+//specifically expects all of the fields again
+$router->put("/contact/update/{id}", function($request){
+    session_start();
+    date_default_timezone_set('UTC');
+    $res = new Response();
+    check_auth($res);
+    validate_csrf($res);
+    $userID = $_SESSION['user_id'];
+    $db = getDB();
+
+    $body = $request->getBody();
+    if ($body == null)
+    {
+        $res->sendJson(Response::STATUS_BAD_REQUEST, [
+            "success" => false,
+            "reason" => "body could not be parsed",
+            "timestamp" => date('Y-m-d H:i:s', time()),
+        ]);
+        // end the handler
+        return;
+    }
+    $contactId = (int)$request->getParamByName('id');
+    // pass contact id as a query parameter
+    if (!$contactId)
+    {
+        $res->sendJson(Response::STATUS_BAD_REQUEST, [
+            "success" => false,
+            "reason" => "invalid contact id.",
+            "timestamp" => date('Y-m-d H:i:s', time()),
+        ]);
+        // end the handler
+        return;
+    }
+    // see utils.php for details
+    validateContact($body, $res);
+
+    $sql = "
+    UPDATE Contact
+    SET
+    FirstName = :fname,
+    LastName  = :lname,
+    Email     = :email,
+    Phone     = :phone
+    WHERE ID = :contact_id
+    AND UserID = :user_id
+    ";
+
+    $stmt = $db->prepare($sql);
+
+    $stmt->execute([
+        ':fname'       => $body['firstname'],
+        ':lname'       => $body['lastname'],
+        ':email'       => $body['email'] ?? null,
+        ':phone'       => $body['phone'] ?? null,
+        ':contact_id'  => $contactId,
+        ':user_id'     => $userID
+    ]);
+
+    //check that rows were affected
+    if ($stmt->rowCount() === 0) {
+        $res->sendJson(Response::STATUS_NOT_FOUND, [
+            'success' => false,
+            'reason' => 'contact not found or not owned by user',
+            "timestamp" => date('Y-m-d H:i:s', time()),
+        ]);
+        return;
+    }
 
     $res->sendJson(Response::STATUS_OK, [
         "success" => true,
         "timestamp" => date('Y-m-d H:i:s', time()),
     ]);
+
+});//end contact update
+
+$router->get("/contact/search", function($request){
+    session_start();
+    date_default_timezone_set('UTC');
+    $res = new Response();
+    check_auth($res);
+    validate_csrf($res);
+    $userID = $_SESSION['user_id'];
+
+
+    $body = $request->getBody();
+    if ($body == null)
+    {
+        $res->sendJson(Response::STATUS_BAD_REQUEST, [
+            "success" => false,
+            "reason" => "body could not be parsed",
+            "timestamp" => date('Y-m-d H:i:s', time())
+        ]);
+        // end the handler
+        return;
+    }
+    if (!array_key_exists('search', $body) || !is_string($body['search']))
+    {
+        $res->sendJson(Response::STATUS_BAD_REQUEST, [
+            "success" => false,
+            "reason" => "`search` field missing or required.",
+            "timestamp" => date('Y-m-d H:i:s', time())
+        ]);
+        // end the handler
+        return;
+    }
+    $db = getDB();
+    $limit = 10;
+    $params = $request->getQueryParams();
+    $page = isset($params['page']) ? (int)$params['page'] : 1;
+    if ($page < 1) $page = 1;
+    $offset = ($page - 1) * $limit;
+
+    $search = $body['search'] === '' ? '' : $body['search'] . "%";
+
+    // get page data
+    $countStmt = $db->prepare("SELECT COUNT(*) FROM Contact WHERE UserID = :user_id;");
+    $countStmt->bindValue(':user_id', $userID, PDO::PARAM_INT);
+    $countStmt->execute();
+    $total = (int) $countStmt->fetchColumn();
+    $totalPages = (int) ceil($total / $limit);
+
+    // add the page matadata
+    $meta = [
+        'current_page' => $page,
+        'per_page' => $limit,
+        'total' => $total,
+        'total_pages' => $totalPages,
+    ];
+
+    //this might be wrong. Not exactly sure how DB is setup
+    $sql = '
+    SELECT ID, FirstName, LastName, Email, Phone 
+    FROM Contact WHERE UserID = :user_id
+    AND (FirstName LIKE :search_f OR LastName Like :search_l)
+    LIMIT :limit OFFSET :offset;';
+    $stmt = $db->prepare($sql);
+    $stmt->execute([
+        ':user_id'  => $userID,
+       ':search_f'    => $search,
+       ':search_l'    => $search,
+        ':limit'    => $limit,
+        ':offset'   => $offset
+    ]);
+    $contacts = [];
+
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $contacts[] = $row;
+    }
+
+    $res->sendJson(Response::STATUS_OK, [
+        "success" => true,
+        "data" => $contacts,
+        "meta" => $meta,
+        "timestamp" => date('Y-m-d H:i:s', time()),
+    ]);
+});//end contact search
+
+// search for a single contact by id (expects id query parameter)
+$router->get("/contact/search/{id}", function($request){
+    session_start();
+    date_default_timezone_set('UTC');
+    $res = new Response();
+    check_auth($res);
+    validate_csrf($res);
+    $userID = $_SESSION['user_id'];
+    $contactId = (int)$request->getParamByName('id');
+
+    if (!$contactId)
+    {
+        $res->sendJson(Response::STATUS_BAD_REQUEST, [
+            "success" => false,
+            "reason" => "ivalid contact id."
+        ]);
+        // end the handler
+        return;
+    }
+    $db = getDB();
+
+    $sql = '
+    SELECT ID, FirstName, LastName, Email, Phone 
+    FROM Contact WHERE UserID = :user_id
+    AND id = :contact_id;';
+    $stmt = $db->prepare($sql);
+    $stmt->execute([
+        ':user_id'  => $userID,
+       ':contact_id'    => $contactId
+    ]);
+    $contact = $stmt->fetch();
+
+    if ($contact)
+    {
+        $res->sendJson(Response::STATUS_OK, [
+            "success" => true,
+            "data" => $contact,
+            "timestamp" => date('Y-m-d H:i:s', time()),
+        ]);
+    }
+    else {
+        $res->sendJson(Response::STATUS_NOT_FOUND, [
+            "success" => false,
+            "error" => "Contact not found or not owned by User",
+            "timestamp" => date('Y-m-d H:i:s', time()),
+        ]);
+    }
 });
+
 
 /*
 *  Handle endpoint requests to endpoints that don't exist
@@ -414,7 +815,8 @@ $router->addNotFoundHandler(function() {
     
     $data = [
         "success" => false,
-        "reason" => "endpoint not found"
+        "reason" => "endpoint not found",
+        "timestamp" => date('Y-m-d H:i:s', time()),
     ];
     $res = new Response();
     $res->sendJson(Response::STATUS_NOT_FOUND, $data);

@@ -84,11 +84,41 @@ function check_auth($res, $restrict_to=false)
     {
         $res->sendJson(Response::STATUS_FORBIDDEN, [
             "success" => false,
-            "error" => "unauthorized access.",
+            "error" => "unauthorized access: user not logged in.",
             "timestamp" => date('Y-m-d H:i:s', time())
         ]);
         exit();
     }
+
+    // do a quick query to check if the user is enabled or not
+    $db = getDB();
+    $sql = "SELECT is_enabled FROM User WHERE id = :uid LIMIT 1";
+    $stmt = $db->prepare($sql);
+    $stmt->execute([':uid' => $_SESSION['user_id']]);
+    $user = $stmt->fetch();
+    if (!$user['is_enabled'])
+    {
+        session_start();
+        // Unset all of the session variables.
+        $_SESSION = array();
+        // delete the session cookie.
+        if (ini_get("session.use_cookies")) {
+            $params = session_get_cookie_params();
+            setcookie(session_name(), '', time() - 42000,
+                $params["path"], $params["domain"],
+                $params["secure"], $params["httponly"]
+            );
+        }
+        // destroy their session.
+        session_destroy();
+        $res->sendJson(Response::STATUS_FORBIDDEN, [
+            "success" => false,
+            "error" => "unauthorized access: user has been disabled",
+            "timestamp" => date('Y-m-d H:i:s', time())
+        ]);
+        exit();
+    }
+
     // only allow regular users to access this endpoint 
     if (!$restrict_to && isset($_SESSION['is_admin']) && $_SESSION['is_admin'])
     {
@@ -199,5 +229,56 @@ function validateSignUp($body, $res)
     // validate password
     validatePassword($body, $res);
 
+}
+
+function validateContact($body, $res)
+{
+    // ensures there is at least a first and last name for the contact
+    if (!array_key_exists('firstname', $body) || !array_key_exists('lastname', $body) ||
+        $body['firstname'] === '' || $body['lastname'] === '')
+    {
+        $res->sendJson(Response::STATUS_BAD_REQUEST, [
+            "success" => false,
+            "reason" => "missing data fields"
+        ]);
+        // end the handler
+        exit();
+    }
+    if (!array_key_exists('email', $body) && !array_key_exists('phone', $body))
+    {
+        $res->sendJson(Response::STATUS_BAD_REQUEST, [
+            "success" => false,
+            "reason" => "Email OR Phone required"
+        ]);
+        // end the handler
+        exit();
+    }
+    // email validation
+    if (!filter_var($body['email'], FILTER_VALIDATE_EMAIL))
+    {
+        $res->sendJson(Response::STATUS_BAD_REQUEST, [
+            "success" => false,
+            "reason" => "Email format invalid"
+        ]);
+        // end the handler
+        exit();
+    }
+    $isPhoneNum = false;
+    $len = strlen($body['phone']);
+    //eliminate every char except 0-9
+    $justNums = preg_replace("/[^0-9]/", '', $body['phone']);
+    // if we are left with the same string, and that string contains 10 digits
+    // then we most likely have a valid phone number
+    if (strlen($justNums) == $len && $len == 10) $isPhoneNum = true;
+
+    if (!$isPhoneNum) 
+    {
+        $res->sendJson(Response::STATUS_BAD_REQUEST, [
+            "success" => false,
+            "reason" => "Phone number format invalid"
+        ]);
+        // end the handler
+        exit();
+    }
 }
 ?>
