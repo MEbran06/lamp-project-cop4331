@@ -1,4 +1,4 @@
-DirectoryIndex index.html
+DirectoryIndex login.html
 
 # enable apache rewrite engine
 RewriteEngine on
@@ -9,7 +9,7 @@ RewriteBase /
 # push every request to the api to index.php
 RewriteRule ^api(.*)$ index.php [QSA,L]
 
-# route all other requests to index.html
+# route all other requests to login.html
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^ index.html [L]
+RewriteRule ^ login.html [L]

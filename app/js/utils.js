@@ -1,4 +1,3 @@
-const baseUrl = "https://webappsmanuel.xyz";
 let csrf_token = "";
 
 function saveCookie(isLogged, csrf_token, minutes) {
