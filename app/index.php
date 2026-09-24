@@ -685,35 +685,16 @@ $router->get("/contact/search", function($request){
     $userID = $_SESSION['user_id'];
 
 
-    $body = $request->getBody();
-    if ($body == null)
-    {
-        $res->sendJson(Response::STATUS_BAD_REQUEST, [
-            "success" => false,
-            "reason" => "body could not be parsed",
-            "timestamp" => date('Y-m-d H:i:s', time())
-        ]);
-        // end the handler
-        return;
-    }
-    if (!array_key_exists('search', $body) || !is_string($body['search']))
-    {
-        $res->sendJson(Response::STATUS_BAD_REQUEST, [
-            "success" => false,
-            "reason" => "`search` field missing or required.",
-            "timestamp" => date('Y-m-d H:i:s', time())
-        ]);
-        // end the handler
-        return;
-    }
+    $params = $request->getQueryParams();
+    $params['search'] = $params['search'] === "%" ? "" : $params['search'] . "%";
+    
     $db = getDB();
     $limit = 10;
-    $params = $request->getQueryParams();
     $page = isset($params['page']) ? (int)$params['page'] : 1;
     if ($page < 1) $page = 1;
     $offset = ($page - 1) * $limit;
 
-    $search = $body['search'] === '' ? '' : $body['search'] . "%";
+    $search = $params['search'];
 
     // get page data
     $countStmt = $db->prepare("SELECT COUNT(*) FROM Contact WHERE UserID = :user_id;");
@@ -732,7 +713,7 @@ $router->get("/contact/search", function($request){
 
     //this might be wrong. Not exactly sure how DB is setup
     $sql = '
-    SELECT ID, FirstName, LastName, Email, Phone 
+    SELECT id, firstname, lastname, email, phone 
     FROM Contact WHERE UserID = :user_id
     AND (FirstName LIKE :search_f OR LastName Like :search_l)
     LIMIT :limit OFFSET :offset;';

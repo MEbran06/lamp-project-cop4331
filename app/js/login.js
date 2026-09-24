@@ -50,7 +50,7 @@ loginForm.addEventListener("submit", async function (event) {
         );
 
         // Redirect to main contact page
-        window.location.href = "contact.html";
+        window.location.href = "contacts.html";
 
     } catch (error) {
 

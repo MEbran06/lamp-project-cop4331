@@ -145,7 +145,7 @@ contactForm.addEventListener(
             if (id) {
 
                 await apiRequest(
-                    `/api/contact/update?id=${encodeURIComponent(id)}`,
+                    `/api/contact/update/${encodeURIComponent(id)}`,
                     {
                         method: "PUT",
 
@@ -246,22 +246,10 @@ async function searchContacts() {
 
         let contacts = [];
 
-        if (Array.isArray(data)) {
+        if (Array.isArray(data.data)) {
 
-            contacts = data;
-
-        } else if (
-            Array.isArray(data.contacts)
-        ) {
-
-            contacts = data.contacts;
-
-        } else if (
-            Array.isArray(data.results)
-        ) {
-
-            contacts = data.results;
-
+            contacts = data.data;
+            console.log(contacts)
         }
 
 
@@ -402,9 +390,7 @@ async function editContact(id) {
 
         const data =
             await apiRequest(
-                `/api/contact?id=${
-                    encodeURIComponent(id)
-                }`
+                `/api/contact/search/${encodeURIComponent(id)}`
             );
 
 
@@ -477,9 +463,7 @@ async function deleteContact(id) {
     try {
 
         await apiRequest(
-            `/api/contact/delete?id=${
-                encodeURIComponent(id)
-            }`,
+            `/api/contact/delete/${encodeURIComponent(id)}`,
             {
                 method: "DELETE"
             }
