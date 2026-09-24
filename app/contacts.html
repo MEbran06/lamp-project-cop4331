@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>My Contacts</title>
+
+    <link
+        rel="stylesheet"
+        href="css/styles.css"
+    >
+</head>
+
+<body>
+
+<div class="app-layout">
+
+    <!-- Sidebar -->
+
+    <aside class="sidebar">
+
+        <div class="sidebar-logo">
+            Contact Manager
+        </div>
+
+        <nav>
+            <a
+                href="contacts.html"
+                class="nav-link active"
+            >
+                Contacts
+            </a>
+
+            <a
+                href="#"
+                class="nav-link"
+            >
+                Profile
+            </a>
+        </nav>
+
+    </aside>
+
+
+    <!-- Main application -->
+
+    <main class="main-content">
+
+        <!-- Top navigation -->
+
+        <header class="topbar">
+
+            <div>
+                <h2>Contacts</h2>
+            </div>
+
+            <div class="user-area">
+
+                <span>
+                    Welcome,
+                    <strong id="currentUsername">
+                        User
+                    </strong>
+                </span>
+
+                <button
+                    id="logoutButton"
+                    class="logout-button"
+                >
+                    Log Out
+                </button>
+
+            </div>
+
+        </header>
+
+
+        <!-- Contacts content -->
+
+        <section class="page-content">
+
+            <div class="contacts-header">
+
+                <div>
+                    <h1>My Contacts</h1>
+
+                    <p>
+                        Search, add, edit, and manage your contacts.
+                    </p>
+                </div>
+
+                <button
+                    id="openAddContactButton"
+                    class="primary-button"
+                >
+                    + Add Contact
+                </button>
+
+            </div>
+
+
+            <!-- Search -->
+
+            <div class="search-container">
+
+                <input
+                    type="text"
+                    id="searchInput"
+                    placeholder="Search contacts..."
+                >
+
+                <button
+                    id="searchButton"
+                    class="primary-button"
+                >
+                    Search
+                </button>
+
+            </div>
+
+
+            <!-- Status message -->
+
+            <div
+                id="pageMessage"
+                class="page-message"
+            ></div>
+
+
+            <!-- Contacts table -->
+
+            <div class="contacts-table-container">
+
+                <table class="contacts-table">
+
+                    <thead>
+
+                    <tr>
+                        <th>First Name</th>
+
+                        <th>Last Name</th>
+
+                        <th>Email</th>
+
+                        <th>Phone</th>
+
+                        <th>Actions</th>
+                    </tr>
+
+                    </thead>
+
+
+                    <tbody id="contactsTableBody">
+
+                    <tr>
+                        <td
+                            colspan="5"
+                            class="empty-message"
+                        >
+                            Search for a contact to get started.
+                        </td>
+                    </tr>
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </section>
+
+    </main>
+
+</div>
+
+
+<!-- Add/Edit Contact Modal -->
+
+<div
+    id="contactModal"
+    class="modal hidden"
+>
+
+    <div class="modal-content">
+
+        <div class="modal-header">
+
+            <h2 id="modalTitle">
+                Add Contact
+            </h2>
+
+            <button
+                id="closeModalButton"
+                class="close-button"
+            >
+                &times;
+            </button>
+
+        </div>
+
+
+        <form id="contactForm">
+
+            <input
+                type="hidden"
+                id="contactId"
+            >
+
+
+            <div class="form-group">
+
+                <label for="firstName">
+                    First Name
+                </label>
+
+                <input
+                    id="firstName"
+                    type="text"
+                    required
+                >
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label for="lastName">
+                    Last Name
+                </label>
+
+                <input
+                    id="lastName"
+                    type="text"
+                    required
+                >
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label for="email">
+                    Email
+                </label>
+
+                <input
+                    id="email"
+                    type="email"
+                >
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label for="phone">
+                    Phone
+                </label>
+
+                <input
+                    id="phone"
+                    type="tel"
+                >
+
+            </div>
+
+
+            <div class="modal-actions">
+
+                <button
+                    type="button"
+                    id="cancelContactButton"
+                    class="secondary-button"
+                >
+                    Cancel
+                </button>
+
+                <button
+                    type="submit"
+                    class="primary-button"
+                >
+                    Save Contact
+                </button>
+
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+
+<script src="js/api.js"></script>
+
+<script src="js/contacts.js"></script>
+
+</body>
+
+</html>
