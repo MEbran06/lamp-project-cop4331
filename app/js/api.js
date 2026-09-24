@@ -1,4 +1,4 @@
-const API_BASE_URL = "https://webappsmanuel.xyz";
+const API_BASE_URL = "http://localhost:80";
 
 async function apiRequest(endpoint, options = {}) {
     const csrfToken = sessionStorage.getItem("csrfToken");

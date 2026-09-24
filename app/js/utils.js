@@ -1,4 +1,3 @@
-const baseUrl = "http://localhost:80"
 let csrf_token = "";
 
 function saveCookie(isLogged, csrf_token, minutes) {
