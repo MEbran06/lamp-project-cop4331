@@ -9,7 +9,10 @@ loginForm.addEventListener("submit", async function (event) {
     const password = document.getElementById("password").value;
 
     if (!username || !password) {
-        showMessage("Please enter your username and password.", "error");
+        showMessage(
+            "Please enter your username and password.",
+            "error"
+        );
         return;
     }
 
@@ -26,10 +29,7 @@ loginForm.addEventListener("submit", async function (event) {
             })
         });
 
-        /*
-         * The Bruno collection shows that login returns:
-         * csrf_token
-         */
+        // Save CSRF token returned by backend
         if (data.csrf_token) {
             sessionStorage.setItem(
                 "csrfToken",
@@ -37,15 +37,31 @@ loginForm.addEventListener("submit", async function (event) {
             );
         }
 
-        // Save username so we can display it.
-        sessionStorage.setItem("username", username);
+        // Save username so it can be displayed
+        // on the contact page
+        sessionStorage.setItem(
+            "username",
+            username
+        );
 
-        showMessage("Login successful.", "success");
+        showMessage(
+            "Login successful.",
+            "success"
+        );
 
-        window.location.href = "contacts.html";
+        // Redirect to main contact page
+        window.location.href = "contact.html";
 
     } catch (error) {
-        showMessage(error.message, "error");
+
+        // Keep technical details in console
+        // but show a generic error to the user
+        console.error("Login failed:", error);
+
+        showMessage(
+            "Login failed. Please check your username and password.",
+            "error"
+        );
 
     } finally {
         loginButton.disabled = false;
