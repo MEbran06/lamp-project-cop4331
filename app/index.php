@@ -254,7 +254,7 @@ $router->post("/admin/search", function($request) {
     $offset = ($page - 1) * $limit;
 
     // add the wildcard
-    $username = $body['username'] === "" ?  $body['username']: $body['username'] . "%";
+    $username = $body['username'] === "" ?  "%": $body['username'] . "%";
 
     // update user password
     $db = getDB();
@@ -686,7 +686,7 @@ $router->get("/contact/search", function($request){
 
 
     $params = $request->getQueryParams();
-    $params['search'] = $params['search'] === "%" ? "" : $params['search'] . "%";
+    $params['search'] = array_key_exists('search', $params) ? $params['search'] . "%" : "%";
     
     $db = getDB();
     $limit = 10;
@@ -697,8 +697,11 @@ $router->get("/contact/search", function($request){
     $search = $params['search'];
 
     // get page data
-    $countStmt = $db->prepare("SELECT COUNT(*) FROM Contact WHERE UserID = :user_id;");
+    $countStmt = $db->prepare("SELECT COUNT(*) FROM Contact WHERE UserID = :user_id 
+                            AND (FirstName LIKE :search_f OR LastName Like :search_l);");
     $countStmt->bindValue(':user_id', $userID, PDO::PARAM_INT);
+    $countStmt->bindValue(':search_f', $search, PDO::PARAM_INT);
+    $countStmt->bindValue(':search_l', $search, PDO::PARAM_INT);
     $countStmt->execute();
     $total = (int) $countStmt->fetchColumn();
     $totalPages = (int) ceil($total / $limit);
