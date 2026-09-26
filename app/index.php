@@ -254,7 +254,7 @@ $router->post("/admin/search", function($request) {
     $offset = ($page - 1) * $limit;
 
     // add the wildcard
-    $username = $body['username'] === "" ?  $body['username']: $body['username'] . "%";
+    $username = $body['username'] === "" ?  "%": $body['username'] . "%";
 
     // update user password
     $db = getDB();
@@ -326,8 +326,6 @@ $router->get("/admin/search/{id}", function($request) {
     $res = new Response();
     // check if the user isn't logged in (restricts this endpoint to admins)
     check_auth($res, true);
-    // validate csrf
-    validate_csrf($res);
 
     // get the query parameters
     $userId = (int)$request->getParamByName('id');
@@ -681,12 +679,11 @@ $router->get("/contact/search", function($request){
     date_default_timezone_set('UTC');
     $res = new Response();
     check_auth($res);
-    validate_csrf($res);
     $userID = $_SESSION['user_id'];
 
 
     $params = $request->getQueryParams();
-    $params['search'] = $params['search'] === "%" ? "" : $params['search'] . "%";
+    $params['search'] = array_key_exists('search', $params) ? $params['search'] . "%" : "%";
     
     $db = getDB();
     $limit = 10;
@@ -697,8 +694,11 @@ $router->get("/contact/search", function($request){
     $search = $params['search'];
 
     // get page data
-    $countStmt = $db->prepare("SELECT COUNT(*) FROM Contact WHERE UserID = :user_id;");
+    $countStmt = $db->prepare("SELECT COUNT(*) FROM Contact WHERE UserID = :user_id 
+                            AND (FirstName LIKE :search_f OR LastName Like :search_l);");
     $countStmt->bindValue(':user_id', $userID, PDO::PARAM_INT);
+    $countStmt->bindValue(':search_f', $search, PDO::PARAM_INT);
+    $countStmt->bindValue(':search_l', $search, PDO::PARAM_INT);
     $countStmt->execute();
     $total = (int) $countStmt->fetchColumn();
     $totalPages = (int) ceil($total / $limit);
@@ -745,7 +745,6 @@ $router->get("/contact/search/{id}", function($request){
     date_default_timezone_set('UTC');
     $res = new Response();
     check_auth($res);
-    validate_csrf($res);
     $userID = $_SESSION['user_id'];
     $contactId = (int)$request->getParamByName('id');
 
@@ -788,6 +787,60 @@ $router->get("/contact/search/{id}", function($request){
     }
 });
 
+
+/*
+*  get csrf token
+*/
+$router->get('/csrf-token', function ($request) {
+    session_start();
+    date_default_timezone_set('UTC');
+    $res = new Response();
+
+    if (!isset($_SESSION['loggedIn']) || !$_SESSION['loggedIn'])
+    {
+        $res->sendJson(Response::STATUS_FORBIDDEN, [
+            "success" => false,
+            "error" => "unauthorized access: user not logged in.",
+            "timestamp" => date('Y-m-d H:i:s', time())
+        ]);
+        return;
+    }
+
+    // do a quick query to check if the user is enabled or not
+    $db = getDB();
+    $sql = "SELECT is_enabled FROM User WHERE id = :uid LIMIT 1";
+    $stmt = $db->prepare($sql);
+    $stmt->execute([':uid' => $_SESSION['user_id']]);
+    $user = $stmt->fetch();
+    if (!$user['is_enabled'])
+    {
+        session_start();
+        // Unset all of the session variables.
+        $_SESSION = array();
+        // delete the session cookie.
+        if (ini_get("session.use_cookies")) {
+            $params = session_get_cookie_params();
+            setcookie(session_name(), '', time() - 42000,
+                $params["path"], $params["domain"],
+                $params["secure"], $params["httponly"]
+            );
+        }
+        // destroy their session.
+        session_destroy();
+        $res->sendJson(Response::STATUS_FORBIDDEN, [
+            "success" => false,
+            "error" => "unauthorized access: user has been disabled",
+            "timestamp" => date('Y-m-d H:i:s', time())
+        ]);
+        return;
+    }
+
+    $res->sendJson(Response::STATUS_OK, [
+        "success" => true,
+        "csrf_token" => $_SESSION['csrf_token'],
+        "timestamp" =>  date('Y-m-d H:i:s', time())
+    ]);
+});
 
 /*
 *  Handle endpoint requests to endpoints that don't exist
