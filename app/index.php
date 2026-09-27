@@ -393,6 +393,7 @@ $router->put("/admin/disable/{id}", function($request) {
     $res = new Response();
     // check if the user isn't logged in (restricts this endpoint to admins)
     check_auth($res, true);
+    validate_csrf($res);
 
     // get the query parameters
     $userId = (int)$request->getParamByName('id');
@@ -400,7 +401,7 @@ $router->put("/admin/disable/{id}", function($request) {
     {
         $res->sendJson(Response::STATUS_BAD_REQUEST, [
             "success" => false,
-            "reason" => "invalid user id.",
+            "error" => "invalid user id.",
             "timestamp" => date('Y-m-d H:i:s', time())
         ]);
         // end the handler
@@ -410,7 +411,7 @@ $router->put("/admin/disable/{id}", function($request) {
 
     $sql = "UPDATE User
     SET
-    disabled = 0
+    is_enabled = 0
     WHERE ID = :user_id
     ";
     $stmt = $db->prepare($sql);
@@ -421,7 +422,7 @@ $router->put("/admin/disable/{id}", function($request) {
     if ($stmt->rowCount() === 0) {
         $res->sendJson(Response::STATUS_NOT_FOUND, [
             'success' => false,
-            'reason' => 'user not found or is already disabled',
+            'error' => 'user not found or is already disabled',
             "timestamp" => date('Y-m-d H:i:s', time()),
         ]);
         return;
@@ -443,6 +444,7 @@ $router->put("/admin/enable/{id}", function($request) {
     $res = new Response();
     // check if the user isn't logged in (restricts this endpoint to admins)
     check_auth($res, true);
+    validate_csrf($res);
 
     // get the query parameters
     $userId = (int)$request->getParamByName('id');
@@ -450,7 +452,7 @@ $router->put("/admin/enable/{id}", function($request) {
     {
         $res->sendJson(Response::STATUS_BAD_REQUEST, [
             "success" => false,
-            "reason" => "invalid user id.",
+            "error" => "invalid user id.",
             "timestamp" => date('Y-m-d H:i:s', time())
         ]);
         // end the handler
@@ -460,7 +462,7 @@ $router->put("/admin/enable/{id}", function($request) {
 
     $sql = "UPDATE User
     SET
-    disabled = 1
+    is_enabled = 1
     WHERE ID = :user_id
     ";
     $stmt = $db->prepare($sql);
@@ -471,7 +473,7 @@ $router->put("/admin/enable/{id}", function($request) {
     if ($stmt->rowCount() === 0) {
         $res->sendJson(Response::STATUS_NOT_FOUND, [
             'success' => false,
-            'reason' => 'user not found or is already disabled',
+            'error' => 'user not found or is already disabled',
             "timestamp" => date('Y-m-d H:i:s', time()),
         ]);
         return;
