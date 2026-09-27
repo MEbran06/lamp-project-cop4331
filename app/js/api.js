@@ -33,7 +33,7 @@ async function apiRequest(endpoint, options = {}) {
 
     // Only send a CSRF token for state-changing requests, ignore login
     if (["POST", "PUT", "PATCH", "DELETE"].includes(method) 
-        && endpoint !== "/api/login") {
+        && endpoint !== "/api/login" && endpoint !== "/api/signup") {
         const csrfToken = await getCsrfToken();
         headers["X-CSRF-Token"] = csrfToken;
     }
