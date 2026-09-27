@@ -52,6 +52,7 @@ input {
 
 .main-content {
     flex: 1;
+    min-width: 0; /* lets the table container scroll instead of stretching the page */
 }
 
 .topbar {
@@ -101,8 +102,14 @@ input {
     cursor: pointer;
 }
 
-.primary-button:hover {
+.primary-button:hover:not(:disabled) {
     background: #1d4ed8;
+}
+
+/* Search button is disabled while a search is in flight */
+.primary-button:disabled {
+    opacity: 0.6;
+    cursor: default;
 }
 
 .secondary-button {
@@ -167,6 +174,12 @@ input {
     border-bottom: none;
 }
 
+/* Dim rows while the next page loads */
+.contacts-table[aria-busy="true"] tbody {
+    opacity: 0.55;
+    transition: opacity 120ms ease;
+}
+
 .empty-message {
     text-align: center !important;
     color: #6b7280;
@@ -175,9 +188,17 @@ input {
 
 /* Actions */
 
+/*
+ * Was display: flex, which turns the <td> into a flex box and drops it out
+ * of table layout (cell height and bottom border stop lining up with the
+ * row). Keep it a table cell and space the buttons instead.
+ */
 .action-buttons {
-    display: flex;
-    gap: 8px;
+    white-space: nowrap;
+}
+
+.action-buttons button + button {
+    margin-left: 8px;
 }
 
 .edit-button {
@@ -211,6 +232,71 @@ input {
 
 .page-message.error {
     color: #b91c1c;
+}
+
+/* Results footer + pagination */
+
+.results-footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 16px;
+}
+
+.results-summary {
+    font-size: 14px;
+    color: #6b7280;
+}
+
+.pagination-list {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+
+.page-button {
+    min-width: 38px;
+    height: 38px;
+    padding: 0 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 7px;
+    background: white;
+    color: #1f2937;
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+}
+
+.page-button:hover:not(:disabled):not([aria-current="page"]) {
+    background: #f9fafb;
+    border-color: #9ca3af;
+}
+
+.page-button:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 2px;
+}
+
+.page-button[aria-current="page"] {
+    background: #2563eb;
+    border-color: #2563eb;
+    color: white;
+    font-weight: bold;
+    cursor: default;
+}
+
+.page-button:disabled:not([aria-current="page"]) {
+    opacity: 0.45;
+    cursor: default;
+}
+
+.page-gap {
+    min-width: 20px;
+    text-align: center;
+    color: #6b7280;
 }
 
 /* Modal */
@@ -315,5 +401,37 @@ input {
 
     .contacts-table-container {
         overflow-x: auto;
+    }
+
+    .results-footer {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .results-summary {
+        text-align: center;
+    }
+
+    .pagination-list {
+        justify-content: center;
+        gap: 4px;
+    }
+
+    .page-button {
+        min-width: 34px;
+        padding: 0 8px;
+    }
+
+    /* Page numbers on one row, Previous / Next on the row below */
+    .page-step {
+        order: 1;
+        flex: 1 1 calc(50% - 2px);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+    .contacts-table[aria-busy="true"] tbody {
+        transition: none;
     }
 }

@@ -34,7 +34,21 @@ const modalTitle =
 const pageMessage =
     document.getElementById("pageMessage");
 
+*
+ * Search / pagination state
+ *
+ * query is the term from the last *submitted* search, not whatever is
+ * currently typed in the box, so clicking page 2 keeps the same results.
+ */
 
+const CONTACTS_PER_PAGE = 10;
+
+const searchState = {
+    query: "",
+    page: 1
+};
+
+let latestSearchRequestId = 0;
 /*
  * Display logged-in username
  */
@@ -183,8 +197,8 @@ contactForm.addEventListener(
 
 
             closeContactModal();
-
-            await searchContacts();
+            // Reload the page user is on instead of always page 1
+            await searchContacts(SearchState.page, {keepMessage: true});
 
 
         } catch (error) {
@@ -200,13 +214,31 @@ contactForm.addEventListener(
 
 
 /*
+ * Start a new search from the search box
+ */
+function runNewSearch(){
+
+    searchState.query = searchInput.value.trim();
+    return searchContacts(1);
+}
+
+/*
  * Search contacts
  */
 
-async function searchContacts() {
+async function searchContacts(page, options = {}) {
 
-    const searchTerm =
-        searchInput.value.trim();
+    page = Math.max(
+        1,
+        parseInt(page, 10) || 1
+    );
+    const requestId = ++latestSearchRequestId;
+
+    setSearchLoading(true);
+
+    if (!options.keepMessage){
+        showMessage("", "");
+    }
 
     try {
 
@@ -226,17 +258,35 @@ async function searchContacts() {
          * The backend should read "search"
          * from the query parameter.
          */
+        const params =
+            new URLSearchParams({
+                search: searchState.query,
+                page: String(page),
+                per_page: String(CONTACTS_PER_PAGE)
+            });
 
+        
         const data =
             await apiRequest(
-                `/api/contact/search?search=${
-                    encodeURIComponent(
-                        searchTerm
-                    )
-                }`
+                `/api/contact/search?search=${params.toString()}`
             );
 
+        // A newer search or page click started while this one was in flight.
+        if (requestId !== latestSearchRequestId) {
+            return;
+        }
 
+        if (data.success === false) {
+            throw new Error(
+                data.message ||
+                data.error ||
+                "Search failed."
+            );
+        }
+
+        const contacts = Array.isArray(data.data) ? data.data : [];
+
+        const meta = normalizeMeta(data.meta, page, contacts.legnth);
         /*
          * Backend response structure may
          * differ slightly.
@@ -244,29 +294,156 @@ async function searchContacts() {
          * Handle several likely forms.
          */
 
-        let contacts = [];
-
-        if (Array.isArray(data.data)) {
-
-            contacts = data.data;
-            console.log(contacts)
+        if (
+            contacts.length === 0 &&
+            meta.total > 0 &&
+            meta.current_page > 1
+        ) {
+            return searchContacts(
+                Math.min(
+                    meta.current_page - 1,
+                    Math.max(1, meta.total_pages)
+                ),
+                options
+            );
         }
-
-
+ 
+ 
+        if (contacts.length === 0 && meta.total > 0) {
+            console.warn(
+                `[contacts] API reported total=${meta.total} but returned ` +
+                `no rows for page ${meta.current_page}. Check server offset logic.`
+            );
+        }
+ 
+ 
+        searchState.page =
+            meta.current_page;
+ 
         renderContacts(contacts);
+ 
+        renderResultsSummary(
+            meta,
+            contacts.length
+        );
+ 
+        Pagination.render(
+            paginationNav,
+            contacts.length ? meta : { total_pages: 0 },
+            {
+                onPageChange: searchContacts,
+                maxButtons: 10
+            }
+        );
 
 
     } catch (error) {
 
+        if (requestId !== latestSearchRequestId) {
+            return;
+        }
+ 
         showMessage(
             error.message,
             "error"
         );
-
+ 
         renderContacts([]);
+ 
+        renderResultsSummary(
+            { total: 0 },
+            0
+        );
+ 
+        Pagination.render(
+            paginationNav,
+            { total_pages: 0 }
+        );
+ 
+    } finally {
+ 
+        if (requestId === latestSearchRequestId) {
+            setSearchLoading(false);
+        }
     }
 }
 
+/*
+ * Turns the API's meta block into readable numbers
+ */
+ 
+function normalizeMeta(meta, requestedPage, rowCount) {
+ 
+    meta = meta || {};
+ 
+    const perPage =
+        parseInt(meta.per_page, 10) || CONTACTS_PER_PAGE;
+ 
+    const parsedTotal =
+        parseInt(meta.total, 10);
+ 
+    const total =
+        Number.isFinite(parsedTotal)
+            ? parsedTotal
+            : rowCount;
+ 
+    const totalPages =
+        parseInt(meta.total_pages, 10) ||
+        Math.ceil(total / perPage) ||
+        0;
+ 
+    return {
+        current_page:
+            parseInt(meta.current_page, 10) || requestedPage,
+        per_page: perPage,
+        total: total,
+        total_pages: totalPages
+    };
+}
+
+/*
+ * Displays what indeces we are displaying(e.g "11-20 of 42")
+ */
+
+function renderResultsSummary(meta, rowCount) {
+ 
+    if (!resultsSummary) {
+        return;
+    }
+ 
+    if (!meta.total || !rowCount) {
+        resultsSummary.textContent = "";
+        return;
+    }
+ 
+    const first =
+        (meta.current_page - 1) * meta.per_page + 1;
+ 
+    const last =
+        first + rowCount - 1;
+ 
+    resultsSummary.textContent =
+        `Showing ${first}–${last} of ${meta.total}`;
+}
+
+
+function setSearchLoading(isLoading) {
+ 
+    searchButton.disabled =
+        isLoading;
+ 
+    if (contactsTable) {
+        contactsTable.setAttribute(
+            "aria-busy",
+            isLoading ? "true" : "false"
+        );
+    }
+ 
+    Pagination.setDisabled(
+        paginationNav,
+        isLoading
+    );
+}
 
 /*
  * Display contacts in table
@@ -476,7 +653,7 @@ async function deleteContact(id) {
         );
 
 
-        await searchContacts();
+        await searchContacts(searchState.page, {keepMessage: true});
 
 
     } catch (error) {
@@ -552,7 +729,9 @@ function showMessage(text, type) {
         text;
 
     pageMessage.className =
-        `page-message ${type}`;
+        type 
+        ? `page-message ${type}`
+        : "page-message";
 }
 
 

@@ -15,6 +15,11 @@
         rel="stylesheet"
         href="css/styles.css"
     >
+
+    <link
+        rel="stylesheet"
+        href="css/styles.css"
+    >
 </head>
 
 <body>
@@ -130,6 +135,7 @@
             <div
                 id="pageMessage"
                 class="page-message"
+                role="status"
             ></div>
 
 
@@ -179,6 +185,30 @@
 
 </div>
 
+<!-- Results summary + pagination (NEW) -->
+ 
+            <div class="results-footer">
+ 
+                <p
+                    id="resultsSummary"
+                    class="results-summary"
+                    aria-live="polite"
+                ></p>
+ 
+                <nav
+                    id="pagination"
+                    class="pagination"
+                    aria-label="Contact pages"
+                    hidden
+                ></nav>
+ 
+            </div>
+ 
+        </section>
+ 
+    </main>
+ 
+</div>
 
 <!-- Add/Edit Contact Modal -->
 
@@ -298,7 +328,7 @@
 
 
 <script src="js/api.js"></script>
-
+<script src="js/pagination.js"></script>
 <script src="js/contacts.js"></script>
 
 </body>
