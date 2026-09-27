@@ -34,7 +34,7 @@ const modalTitle =
 const pageMessage =
     document.getElementById("pageMessage");
 
-*
+/*
  * Search / pagination state
  *
  * query is the term from the last *submitted* search, not whatever is
