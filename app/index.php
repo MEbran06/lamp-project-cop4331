@@ -385,6 +385,107 @@ $router->get("/admin/search/{id}", function($request) {
 });
 
 /*
+ * admin disable user by ID
+ */
+$router->put("/admin/disable/{id}", function($request) {
+    session_start();
+    date_default_timezone_set('UTC');
+    $res = new Response();
+    // check if the user isn't logged in (restricts this endpoint to admins)
+    check_auth($res, true);
+    validate_csrf($res);
+
+    // get the query parameters
+    $userId = (int)$request->getParamByName('id');
+    if (!$userId)
+    {
+        $res->sendJson(Response::STATUS_BAD_REQUEST, [
+            "success" => false,
+            "error" => "invalid user id.",
+            "timestamp" => date('Y-m-d H:i:s', time())
+        ]);
+        // end the handler
+        return;
+    }
+    $db = getDB();
+
+    $sql = "UPDATE User
+    SET
+    is_enabled = 0
+    WHERE ID = :user_id
+    ";
+    $stmt = $db->prepare($sql);
+    $stmt->execute([':user_id' => $userId]);
+    $user = $stmt->fetch();
+
+    //check that rows were affected
+    if ($stmt->rowCount() === 0) {
+        $res->sendJson(Response::STATUS_NOT_FOUND, [
+            'success' => false,
+            'error' => 'user not found or is already disabled',
+            "timestamp" => date('Y-m-d H:i:s', time()),
+        ]);
+        return;
+    }
+
+    $res->sendJson(Response::STATUS_OK, [
+        "success" => true,
+        "timestamp" => date('Y-m-d H:i:s', time()),
+    ]);
+
+});
+
+/*
+ * admin enable user by ID
+ */
+$router->put("/admin/enable/{id}", function($request) {
+    session_start();
+    date_default_timezone_set('UTC');
+    $res = new Response();
+    // check if the user isn't logged in (restricts this endpoint to admins)
+    check_auth($res, true);
+    validate_csrf($res);
+
+    // get the query parameters
+    $userId = (int)$request->getParamByName('id');
+    if (!$userId)
+    {
+        $res->sendJson(Response::STATUS_BAD_REQUEST, [
+            "success" => false,
+            "error" => "invalid user id.",
+            "timestamp" => date('Y-m-d H:i:s', time())
+        ]);
+        // end the handler
+        return;
+    }
+    $db = getDB();
+
+    $sql = "UPDATE User
+    SET
+    is_enabled = 1
+    WHERE ID = :user_id
+    ";
+    $stmt = $db->prepare($sql);
+    $stmt->execute([':user_id' => $userId]);
+    $user = $stmt->fetch();
+
+    //check that rows were affected
+    if ($stmt->rowCount() === 0) {
+        $res->sendJson(Response::STATUS_NOT_FOUND, [
+            'success' => false,
+            'error' => 'user not found or is already disabled',
+            "timestamp" => date('Y-m-d H:i:s', time()),
+        ]);
+        return;
+    }
+
+    $res->sendJson(Response::STATUS_OK, [
+        "success" => true,
+        "timestamp" => date('Y-m-d H:i:s', time()),
+    ]);
+
+});
+/*
 * login router
 */
 $router->post('/login', function ($request) {
