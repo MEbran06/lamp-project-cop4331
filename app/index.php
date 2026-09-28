@@ -38,7 +38,7 @@ $router->post('/signup', function ($request) {
     {
         $res->sendJson(Response::STATUS_BAD_REQUEST, [
             "success" => false,
-            "reason" => "body could not be parsed"
+            "error" => "body could not be parsed"
         ]);
         // end the handler
         return;

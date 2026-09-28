@@ -175,7 +175,7 @@ function validatePassword($body, $res)
     if (!preg_match($pattern, $body['password'])) {
         $res->sendJson(Response::STATUS_BAD_REQUEST, [
             "success" => false,
-            "reason" => "password needs at least 1 upper and lower case character, a digit, and a special character and it must be at least 8 characters long"
+            "error" => "password needs at least 1 upper and lower case character, a digit, and a special character and it must be at least 8 characters long"
         ]);
         // end the handler
         exit();
@@ -192,7 +192,7 @@ function validateSignUp($body, $res)
     {
         $res->sendJson(Response::STATUS_BAD_REQUEST, [
             "success" => false,
-            "reason" => "missing data fields"
+            "error" => "missing data fields"
         ]);
         // end the handler
         exit();
@@ -206,7 +206,7 @@ function validateSignUp($body, $res)
     {
         $res->sendJson(Response::STATUS_BAD_REQUEST, [
             "success" => false,
-            "reason" => "data fields are incorrect type or empty"
+            "error" => "data fields are incorrect type or empty"
         ]);
         // end the handler
         exit();
@@ -220,7 +220,7 @@ function validateSignUp($body, $res)
 
         $res->sendJson(Response::STATUS_BAD_REQUEST, [
             "success" => false,
-            "reason" => "username must only contain characters, digits, or .,-,_,!,@"
+            "error" => "username must only contain characters, digits, or .,-,_,!,@"
         ]);
         // end the handler
         exit();
@@ -239,7 +239,7 @@ function validateContact($body, $res)
     {
         $res->sendJson(Response::STATUS_BAD_REQUEST, [
             "success" => false,
-            "reason" => "missing data fields"
+            "error" => "missing data fields"
         ]);
         // end the handler
         exit();
@@ -248,7 +248,7 @@ function validateContact($body, $res)
     {
         $res->sendJson(Response::STATUS_BAD_REQUEST, [
             "success" => false,
-            "reason" => "Email OR Phone required"
+            "error" => "Email OR Phone required"
         ]);
         // end the handler
         exit();
@@ -258,7 +258,7 @@ function validateContact($body, $res)
     {
         $res->sendJson(Response::STATUS_BAD_REQUEST, [
             "success" => false,
-            "reason" => "Email format invalid"
+            "error" => "Email format invalid"
         ]);
         // end the handler
         exit();
@@ -275,7 +275,7 @@ function validateContact($body, $res)
     {
         $res->sendJson(Response::STATUS_BAD_REQUEST, [
             "success" => false,
-            "reason" => "Phone number format invalid"
+            "error" => "Phone number format invalid"
         ]);
         // end the handler
         exit();
