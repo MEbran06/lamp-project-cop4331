@@ -38,7 +38,7 @@ $router->post('/signup', function ($request) {
     {
         $res->sendJson(Response::STATUS_BAD_REQUEST, [
             "success" => false,
-            "reason" => "body could not be parsed"
+            "error" => "body could not be parsed"
         ]);
         // end the handler
         return;
@@ -861,7 +861,7 @@ $router->get("/contact/search/{id}", function($request){
     $db = getDB();
 
     $sql = '
-    SELECT ID, FirstName, LastName, Email, Phone 
+    SELECT id, firstname, lastname, email, phone 
     FROM Contact WHERE UserID = :user_id
     AND id = :contact_id;';
     $stmt = $db->prepare($sql);

@@ -404,8 +404,7 @@ async function editContact(id) {
          * {...}
          */
 
-        const contact =
-            data.contact || data;
+        const contact = data.data;
 
 
         contactId.value =
