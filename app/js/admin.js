@@ -50,9 +50,9 @@ const ADMIN_ENDPOINTS = {
  */
 
 const isAdminSession =
-    sessionStorage.getItem("role") === "admin";
+    localStorage.getItem("role") === "admin";
 
-if (!sessionStorage.getItem("username")) {
+if (!localStorage.getItem("username")) {
 
     window.location.replace("login.html");
 
@@ -169,7 +169,7 @@ const MIN_PASSWORD_LENGTH = 8;
 const USERS_PER_PAGE = 10;
 
 const savedUsername =
-    sessionStorage.getItem("username");
+    localStorage.getItem("username");
 
 
 /*
@@ -1360,6 +1360,7 @@ document
             } finally {
 
                 sessionStorage.clear();
+                localStorage.clear();
 
                 window.location.href =
                     "login.html";

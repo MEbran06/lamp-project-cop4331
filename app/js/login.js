@@ -39,7 +39,7 @@ loginForm.addEventListener("submit", async function (event) {
 
         // Save username so it can be displayed
         // on the contact page
-        sessionStorage.setItem(
+        localStorage.setItem(
             "username",
             username
         );
@@ -48,7 +48,7 @@ loginForm.addEventListener("submit", async function (event) {
         // Admins and users share this login page.
         const role = getLoginRole(data);
 
-        sessionStorage.setItem(
+        localStorage.setItem(
             "role",
             role
         );
