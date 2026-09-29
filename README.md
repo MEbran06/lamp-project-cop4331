@@ -18,6 +18,7 @@ This project was developed with assistance from generative AI tools:
 - **Dates**: September 28,29 2026
 - **Scope**: Built the admin.js/html files using similar endpoints to contacts.js with slight alterations
 - **Use**: Generated javascript to enable/disable users, change user passwords, and create admins using new endpoints all within admin.js. Built the Admin.html file that mimicked the html from contacts.html with slight alterations.
+
 All AI-generated code was reviewed, tested, and modified to meet 
 assignment requirements. Final implementation reflects my understanding 
 of the concepts.
