@@ -34,6 +34,15 @@ const modalTitle =
 const pageMessage =
     document.getElementById("pageMessage");
 
+const contactsTable =
+    document.querySelector(".contacts-table");
+
+const resultsSummary =
+    document.getElementById("resultsSummary");
+
+const paginationNav =
+    document.getElementById("pagination");
+
 /*
  * Search / pagination state
  *
@@ -107,7 +116,7 @@ document
 
 searchButton.addEventListener(
     "click",
-    searchContacts
+    runNewSearch
 );
 
 
@@ -198,7 +207,7 @@ contactForm.addEventListener(
 
             closeContactModal();
             // Reload the page user is on instead of always page 1
-            await searchContacts(SearchState.page, {keepMessage: true});
+            await searchContacts(searchState.page, {keepMessage: true});
 
 
         } catch (error) {
@@ -268,7 +277,7 @@ async function searchContacts(page, options = {}) {
         
         const data =
             await apiRequest(
-                `/api/contact/search?search=${params.toString()}`
+                `/api/contact/search?${params.toString()}`
             );
 
         // A newer search or page click started while this one was in flight.
@@ -286,7 +295,7 @@ async function searchContacts(page, options = {}) {
 
         const contacts = Array.isArray(data.data) ? data.data : [];
 
-        const meta = normalizeMeta(data.meta, page, contacts.legnth);
+        const meta = normalizeMeta(data.meta, page, contacts.length);
         /*
          * Backend response structure may
          * differ slightly.
