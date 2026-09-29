@@ -57,12 +57,11 @@ loginForm.addEventListener("submit", async function (event) {
             "Login successful.",
             "success"
         );
-
-        // Admins go to the dashboard, everyone else to contacts
-        window.location.href =
-            role === "admin"
-                ? "admin.html"
-                : "contacts.html";
+        // Redirect to main contact page
+        if (!data.is_admin)
+            window.location.href = "contacts.html";
+        else
+             window.location.href = "admin.html"; // replace with actual admin page
 
     } catch (error) {
 
@@ -71,7 +70,7 @@ loginForm.addEventListener("submit", async function (event) {
         console.error("Login failed:", error);
 
         showMessage(
-            "Login failed. Please check your username and password.",
+            error.message,
             "error"
         );
 
