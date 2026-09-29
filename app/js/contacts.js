@@ -63,12 +63,20 @@ let latestSearchRequestId = 0;
  */
 
 const savedUsername =
-    sessionStorage.getItem("username");
+    localStorage.getItem("username");
 
 if (savedUsername) {
     document.getElementById(
         "currentUsername"
     ).textContent = savedUsername;
+}
+
+const isAdminSession =
+    localStorage.getItem("role") === "admin";
+
+if (isAdminSession) {
+
+    window.location.replace("admin.html");
 }
 
 
@@ -704,6 +712,7 @@ document
             } finally {
 
                 sessionStorage.clear();
+                localStorage.clear();
 
                 window.location.href =
                     "login.html";
