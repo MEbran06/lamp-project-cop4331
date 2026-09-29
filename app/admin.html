@@ -41,13 +41,6 @@
             >
                 Admin Dashboard
             </a>
-
-            <a
-                href="contacts.html"
-                class="nav-link"
-            >
-                Contacts
-            </a>
         </nav>
 
     </aside>
@@ -158,6 +151,8 @@
 
                         <th>Status</th>
 
+                        <th>Contacts</th>
+
                         <th>Actions</th>
                     </tr>
 
@@ -168,7 +163,7 @@
 
                     <tr>
                         <td
-                            colspan="6"
+                            colspan="7"
                             class="empty-message"
                         >
                             Loading users...
@@ -492,6 +487,104 @@
             </div>
 
         </form>
+
+    </div>
+
+</div>
+
+
+<!-- User Details Modal -->
+
+<div
+    id="userModal"
+    class="modal hidden"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="userModalTitle"
+>
+
+    <div class="modal-content modal-wide">
+
+        <div class="modal-header">
+
+            <h2 id="userModalTitle">
+                User Details
+            </h2>
+
+            <button
+                type="button"
+                class="close-button"
+                data-close-modal
+                aria-label="Close"
+            >
+                &times;
+            </button>
+
+        </div>
+
+
+        <div
+            id="userModalMessage"
+            class="page-message"
+            role="alert"
+        ></div>
+
+
+        <div
+            id="userDetails"
+            class="user-details"
+        ></div>
+
+
+        <!-- Hidden for admin accounts, which can't have contacts -->
+
+        <div id="userContactsSection">
+
+        <h3 class="section-title">
+            Contacts
+            <span id="userContactsCount"></span>
+        </h3>
+
+
+        <div class="contacts-table-container modal-table-container">
+
+            <table class="contacts-table">
+
+                <thead>
+
+                <tr>
+                    <th>First Name</th>
+
+                    <th>Last Name</th>
+
+                    <th>Email</th>
+
+                    <th>Phone</th>
+                </tr>
+
+                </thead>
+
+
+                <tbody id="userContactsBody"></tbody>
+
+            </table>
+
+        </div>
+
+        </div>
+
+
+        <div class="modal-actions">
+
+            <button
+                type="button"
+                class="secondary-button"
+                data-close-modal
+            >
+                Close
+            </button>
+
+        </div>
 
     </div>
 

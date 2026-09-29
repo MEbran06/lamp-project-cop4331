@@ -256,7 +256,6 @@ $router->post("/admin/search", function($request) {
     // add the wildcard
     $username = $body['username'] === "" ?  "%": $body['username'] . "%";
 
-    // update user password
     $db = getDB();
 
     // get page data
@@ -300,9 +299,12 @@ $router->post("/admin/search", function($request) {
         GROUP BY User.id
         LIMIT :limit OFFSET :offset;";
     $stmt = $db->prepare($sql);
-    $stmt->execute([':uname' => $username,
-                    ':offset' => $offset,
-                    ':limit' => $limit]);
+    // LIMIT/OFFSET must be bound as integers; passing them through execute([...])
+    // binds them as strings, which MySQL rejects when PDO emulates prepares.
+    $stmt->bindValue(':uname', $username, PDO::PARAM_STR);
+    $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+    $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+    $stmt->execute();
     $users = [];
 
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -390,6 +392,10 @@ $router->get("/admin/search/{id}", function($request) {
 
 /*
  * admin disable user by ID
+ *
+ * - 404 only when the user doesn't exist
+ * - 403 when an admin tries to disable themselves or another admin
+ * - 200 when the user is disabled (including if they already were)
  */
 $router->put("/admin/disable/{id}", function($request) {
     session_start();
@@ -413,23 +419,33 @@ $router->put("/admin/disable/{id}", function($request) {
     }
     $db = getDB();
 
-    $sql = "UPDATE User
-    SET
-    is_enabled = 0
-    WHERE ID = :user_id
-    ";
-    $stmt = $db->prepare($sql);
+    // look the user up first so "not found" and "already disabled" can be told apart
+    $stmt = $db->prepare("SELECT is_enabled, is_elevated FROM User WHERE ID = :user_id LIMIT 1");
     $stmt->execute([':user_id' => $userId]);
-    $user = $stmt->fetch();
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    //check that rows were affected
-    if ($stmt->rowCount() === 0) {
+    if (!$user) {
         $res->sendJson(Response::STATUS_NOT_FOUND, [
             'success' => false,
-            'error' => 'user not found or is already disabled',
+            'error' => 'user not found',
             "timestamp" => date('Y-m-d H:i:s', time()),
         ]);
         return;
+    }
+
+    // an admin must not be able to lock themselves or other admins out
+    if ($userId === (int)$_SESSION['user_id'] || (bool)$user['is_elevated']) {
+        $res->sendJson(Response::STATUS_FORBIDDEN, [
+            'success' => false,
+            'error' => 'admin accounts cannot be disabled',
+            "timestamp" => date('Y-m-d H:i:s', time()),
+        ]);
+        return;
+    }
+
+    if ((bool)$user['is_enabled']) {
+        $stmt = $db->prepare("UPDATE User SET is_enabled = 0 WHERE ID = :user_id");
+        $stmt->execute([':user_id' => $userId]);
     }
 
     $res->sendJson(Response::STATUS_OK, [
@@ -441,6 +457,9 @@ $router->put("/admin/disable/{id}", function($request) {
 
 /*
  * admin enable user by ID
+ *
+ * - 404 only when the user doesn't exist
+ * - 200 when the user is enabled (including if they already were)
  */
 $router->put("/admin/enable/{id}", function($request) {
     session_start();
@@ -464,23 +483,23 @@ $router->put("/admin/enable/{id}", function($request) {
     }
     $db = getDB();
 
-    $sql = "UPDATE User
-    SET
-    is_enabled = 1
-    WHERE ID = :user_id
-    ";
-    $stmt = $db->prepare($sql);
+    // look the user up first so "not found" and "already enabled" can be told apart
+    $stmt = $db->prepare("SELECT is_enabled FROM User WHERE ID = :user_id LIMIT 1");
     $stmt->execute([':user_id' => $userId]);
-    $user = $stmt->fetch();
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    //check that rows were affected
-    if ($stmt->rowCount() === 0) {
+    if (!$user) {
         $res->sendJson(Response::STATUS_NOT_FOUND, [
             'success' => false,
-            'error' => 'user not found or is already disabled',
+            'error' => 'user not found',
             "timestamp" => date('Y-m-d H:i:s', time()),
         ]);
         return;
+    }
+
+    if (!(bool)$user['is_enabled']) {
+        $stmt = $db->prepare("UPDATE User SET is_enabled = 1 WHERE ID = :user_id");
+        $stmt->execute([':user_id' => $userId]);
     }
 
     $res->sendJson(Response::STATUS_OK, [
@@ -762,14 +781,23 @@ $router->put("/contact/update/{id}", function($request){
         ':user_id'     => $userID
     ]);
 
-    //check that rows were affected
+    // rowCount() is 0 both when the contact doesn't exist and when the
+    // saved values are unchanged, so confirm which one it was.
     if ($stmt->rowCount() === 0) {
-        $res->sendJson(Response::STATUS_NOT_FOUND, [
-            'success' => false,
-            'reason' => 'contact not found or not owned by user',
-            "timestamp" => date('Y-m-d H:i:s', time()),
+        $check = $db->prepare("SELECT 1 FROM Contact WHERE ID = :contact_id AND UserID = :user_id LIMIT 1");
+        $check->execute([
+            ':contact_id' => $contactId,
+            ':user_id'    => $userID
         ]);
-        return;
+
+        if (!$check->fetchColumn()) {
+            $res->sendJson(Response::STATUS_NOT_FOUND, [
+                'success' => false,
+                'reason' => 'contact not found or not owned by user',
+                "timestamp" => date('Y-m-d H:i:s', time()),
+            ]);
+            return;
+        }
     }
 
     $res->sendJson(Response::STATUS_OK, [
@@ -802,8 +830,10 @@ $router->get("/contact/search", function($request){
     $countStmt = $db->prepare("SELECT COUNT(*) FROM Contact WHERE UserID = :user_id 
                             AND (FirstName LIKE :search_f OR LastName Like :search_l);");
     $countStmt->bindValue(':user_id', $userID, PDO::PARAM_INT);
-    $countStmt->bindValue(':search_f', $search, PDO::PARAM_INT);
-    $countStmt->bindValue(':search_l', $search, PDO::PARAM_INT);
+    // the search text is a string; binding it as PARAM_INT could make the
+    // count disagree with the rows actually returned
+    $countStmt->bindValue(':search_f', $search, PDO::PARAM_STR);
+    $countStmt->bindValue(':search_l', $search, PDO::PARAM_STR);
     $countStmt->execute();
     $total = (int) $countStmt->fetchColumn();
     $totalPages = (int) ceil($total / $limit);
@@ -816,20 +846,19 @@ $router->get("/contact/search", function($request){
         'total_pages' => $totalPages,
     ];
 
-    //this might be wrong. Not exactly sure how DB is setup
     $sql = '
     SELECT id, firstname, lastname, email, phone 
     FROM Contact WHERE UserID = :user_id
     AND (FirstName LIKE :search_f OR LastName Like :search_l)
     LIMIT :limit OFFSET :offset;';
     $stmt = $db->prepare($sql);
-    $stmt->execute([
-        ':user_id'  => $userID,
-       ':search_f'    => $search,
-       ':search_l'    => $search,
-        ':limit'    => $limit,
-        ':offset'   => $offset
-    ]);
+    // bind with explicit types so LIMIT/OFFSET are integers
+    $stmt->bindValue(':user_id', $userID, PDO::PARAM_INT);
+    $stmt->bindValue(':search_f', $search, PDO::PARAM_STR);
+    $stmt->bindValue(':search_l', $search, PDO::PARAM_STR);
+    $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+    $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+    $stmt->execute();
     $contacts = [];
 
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -917,9 +946,10 @@ $router->get('/csrf-token', function ($request) {
     $stmt = $db->prepare($sql);
     $stmt->execute([':uid' => $_SESSION['user_id']]);
     $user = $stmt->fetch();
-    if (!$user['is_enabled'])
+    // also covers a user that was deleted while still logged in
+    if (!$user || !$user['is_enabled'])
     {
-        session_start();
+        // the session is already started at the top of this handler
         // Unset all of the session variables.
         $_SESSION = array();
         // delete the session cookie.

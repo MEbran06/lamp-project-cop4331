@@ -21,6 +21,11 @@ const ADMIN_ENDPOINTS = {
     // POST ?page=N, body: { username } (prefix match, "" = everyone)
     searchUsers: "/api/admin/search",
 
+    // GET, returns one user and their contacts
+    getUser: function (id) {
+        return `/api/admin/search/${encodeURIComponent(id)}`;
+    },
+
     // POST, body: { username, password }
     setPassword: "/api/admin/set-password",
 
@@ -136,6 +141,29 @@ const resetConfirmPassword =
     document.getElementById("resetConfirmPassword");
 
 
+// User details modal
+
+const userModal =
+    document.getElementById("userModal");
+
+const userModalMessage =
+    document.getElementById("userModalMessage");
+
+const userDetails =
+    document.getElementById("userDetails");
+
+const userContactsBody =
+    document.getElementById("userContactsBody");
+
+const userContactsCount =
+    document.getElementById("userContactsCount");
+
+const userContactsSection =
+    document.getElementById("userContactsSection");
+
+let latestUserRequestId = 0;
+
+
 const MIN_PASSWORD_LENGTH = 8;
 
 const USERS_PER_PAGE = 10;
@@ -214,7 +242,7 @@ document.addEventListener(
             return;
         }
 
-        [adminModal, passwordModal].forEach(function (modal) {
+        [adminModal, passwordModal, userModal].forEach(function (modal) {
 
             if (!modal.classList.contains("hidden")) {
                 closeModal(modal);
@@ -646,7 +674,177 @@ async function setUserActive(user, makeActive) {
             error.message,
             "error"
         );
+
+        // The row may be out of date (e.g. the user was already
+        // disabled), so reload the page to show the real status.
+        await searchUsers(searchState.page, { keepMessage: true });
     }
+}
+
+
+/*
+ * Open the details modal for one user.
+ * Loads fresh data from GET /api/admin/search/{id}.
+ */
+
+async function openUserModal(user) {
+
+    const requestId =
+        ++latestUserRequestId;
+
+    showMessage("", "", userModalMessage);
+
+    // Show what we already know while the full record loads.
+    renderUserDetails(user);
+
+    // Admins can't have contacts, so only users get the contacts section.
+    const isAdminAccount =
+        getUserRole(user) === "admin";
+
+    userContactsSection.hidden =
+        isAdminAccount;
+
+    if (!isAdminAccount) {
+        renderUserContacts(null);
+    }
+
+    openModal(userModal, userModal.querySelector(".close-button"));
+
+
+    try {
+
+        const data =
+            await apiRequest(
+                ADMIN_ENDPOINTS.getUser(user.id)
+            );
+
+        // Another user was opened while this one was loading.
+        if (requestId !== latestUserRequestId) {
+            return;
+        }
+
+        throwIfFailed(data, "User could not be loaded.");
+
+        const fullUser =
+            normalizeUser(data.data || {});
+
+        renderUserDetails(fullUser);
+
+        userContactsSection.hidden =
+            getUserRole(fullUser) === "admin";
+
+        renderUserContacts(fullUser.contacts);
+
+
+    } catch (error) {
+
+        if (requestId !== latestUserRequestId) {
+            return;
+        }
+
+        showMessage(
+            error.message,
+            "error",
+            userModalMessage
+        );
+
+        renderUserContacts([], "Contacts could not be loaded.");
+    }
+}
+
+
+function renderUserDetails(user) {
+
+    const role =
+        getUserRole(user);
+
+    const active =
+        isUserActive(user);
+
+    const fullName =
+        `${user.firstname || ""} ${user.lastname || ""}`.trim();
+
+    userDetails.innerHTML = `
+        <div class="detail-item">
+            <span class="detail-label">Name</span>
+            <span>${escapeHtml(fullName || "—")}</span>
+        </div>
+
+        <div class="detail-item">
+            <span class="detail-label">Username</span>
+            <span>${escapeHtml(user.username || "—")}</span>
+        </div>
+
+        <div class="detail-item">
+            <span class="detail-label">Role</span>
+            <span class="role-badge role-${role}">
+                ${role === "admin" ? "Admin" : "User"}
+            </span>
+        </div>
+
+        <div class="detail-item">
+            <span class="detail-label">Status</span>
+            <span class="status-badge ${active ? "status-active" : "status-disabled"}">
+                ${active ? "Active" : "Inactive"}
+            </span>
+        </div>
+    `;
+}
+
+
+/*
+ * contacts: array to show, or null while loading
+ */
+
+function renderUserContacts(contacts, emptyText) {
+
+    if (contacts === null) {
+
+        userContactsCount.textContent = "";
+
+        userContactsBody.innerHTML = `
+            <tr>
+                <td colspan="4" class="empty-message">
+                    Loading contacts...
+                </td>
+            </tr>
+        `;
+
+        return;
+    }
+
+
+    userContactsCount.textContent =
+        contacts.length
+            ? `(${contacts.length})`
+            : "";
+
+
+    if (!contacts.length) {
+
+        userContactsBody.innerHTML = `
+            <tr>
+                <td colspan="4" class="empty-message">
+                    ${escapeHtml(emptyText || "This user has no contacts.")}
+                </td>
+            </tr>
+        `;
+
+        return;
+    }
+
+
+    userContactsBody.innerHTML =
+        contacts.map(function (contact) {
+            return `
+                <tr>
+                    <td>${escapeHtml(contact.firstname)}</td>
+                    <td>${escapeHtml(contact.lastname)}</td>
+                    <td>${escapeHtml(contact.email)}</td>
+                    <td>${escapeHtml(contact.phone)}</td>
+                </tr>
+            `;
+        }).join("");
 }
 
 
@@ -767,7 +965,7 @@ function renderUsers(users, emptyText) {
         usersTableBody.innerHTML = `
             <tr>
                 <td
-                    colspan="6"
+                    colspan="7"
                     class="empty-message"
                 >
                     ${escapeHtml(emptyText || "No users found.")}
@@ -833,7 +1031,19 @@ function renderUsers(users, emptyText) {
                     </span>
                 </td>
 
+                <td class="contacts-count">
+                    ${role === "admin" ? `<span class="no-actions">—</span>` : user.contacts.length}
+                </td>
+
                 <td class="action-buttons">
+                    <button
+                        type="button"
+                        class="view-button"
+                        data-action="view"
+                    >
+                        View
+                    </button>
+
                     ${canManage ? `
                         <button
                             type="button"
@@ -850,9 +1060,19 @@ function renderUsers(users, emptyText) {
                         >
                             ${active ? "Disable" : "Enable"}
                         </button>
-                    ` : `<span class="no-actions">—</span>`}
+                    ` : ""}
                 </td>
             `;
+
+
+            row
+                .querySelector('[data-action="view"]')
+                .addEventListener(
+                    "click",
+                    function () {
+                        openUserModal(user);
+                    }
+                );
 
 
             if (canManage) {
@@ -886,13 +1106,15 @@ function renderUsers(users, emptyText) {
 
 
 /*
- * The search endpoint returns user_id, user_fname, user_lname,
- * user_uname and contacts. Map those to the names the rest of
- * this file uses. Plain names are accepted too, in case the
- * backend changes.
+ * Both admin search endpoints return user_* fields:
+ *   POST /admin/search      -> user_enabled, user_admin
+ *   GET  /admin/search/{id} -> user_active,  user_admin
+ * Map them (and their contacts) to the names this file uses.
  */
 
 function normalizeUser(raw) {
+
+    raw = raw || {};
 
     return {
         id:
@@ -907,14 +1129,39 @@ function normalizeUser(raw) {
         username:
             raw.user_uname ?? raw.username ?? "",
 
-        // The User table's columns are is_elevated and is_enabled.
-        // The search endpoint needs to SELECT them for the Role and
-        // Status columns (and the Disable/Enable button) to be accurate.
         is_admin:
-            raw.is_admin ?? raw.is_elevated,
+            raw.user_admin ?? raw.is_admin ?? raw.is_elevated,
 
         is_active:
-            raw.is_active ?? raw.is_enabled
+            raw.user_enabled ?? raw.user_active ?? raw.is_active ?? raw.is_enabled,
+
+        contacts:
+            Array.isArray(raw.contacts)
+                ? raw.contacts.map(normalizeContact)
+                : []
+    };
+}
+
+
+function normalizeContact(raw) {
+
+    raw = raw || {};
+
+    return {
+        id:
+            raw.contact_id ?? raw.id,
+
+        firstname:
+            raw.contact_fname ?? raw.firstname ?? "",
+
+        lastname:
+            raw.contact_lname ?? raw.lastname ?? "",
+
+        email:
+            raw.contact_email ?? raw.email ?? "",
+
+        phone:
+            raw.contact_phone ?? raw.phone ?? ""
     };
 }
 
