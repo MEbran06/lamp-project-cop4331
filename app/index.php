@@ -394,7 +394,6 @@ $router->get("/admin/search/{id}", function($request) {
  * admin disable user by ID
  *
  * - 404 only when the user doesn't exist
- * - 403 when an admin tries to disable themselves or another admin
  * - 200 when the user is disabled (including if they already were)
  */
 $router->put("/admin/disable/{id}", function($request) {
@@ -405,7 +404,7 @@ $router->put("/admin/disable/{id}", function($request) {
     check_auth($res, true);
     validate_csrf($res);
 
-    // get the query parameters
+    // get the route parameter
     $userId = (int)$request->getParamByName('id');
     if (!$userId)
     {
@@ -428,16 +427,6 @@ $router->put("/admin/disable/{id}", function($request) {
         $res->sendJson(Response::STATUS_NOT_FOUND, [
             'success' => false,
             'error' => 'user not found',
-            "timestamp" => date('Y-m-d H:i:s', time()),
-        ]);
-        return;
-    }
-
-    // an admin must not be able to lock themselves or other admins out
-    if ($userId === (int)$_SESSION['user_id'] || (bool)$user['is_elevated']) {
-        $res->sendJson(Response::STATUS_FORBIDDEN, [
-            'success' => false,
-            'error' => 'admin accounts cannot be disabled',
             "timestamp" => date('Y-m-d H:i:s', time()),
         ]);
         return;
