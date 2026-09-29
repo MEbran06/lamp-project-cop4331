@@ -70,6 +70,10 @@ if (savedUsername) {
         "currentUsername"
     ).textContent = savedUsername;
 }
+else {
+    window.location.replace("login.html");
+}
+
 
 const isAdminSession =
     localStorage.getItem("role") === "admin";

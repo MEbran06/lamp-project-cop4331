@@ -990,9 +990,9 @@ function renderUsers(users, emptyText) {
                 isUserActive(user);
 
             // Actions are for regular users only, never admins or yourself.
-            const canManage =
-                role === "user" &&
-                user.username !== savedUsername;
+            // const canManage =
+            //     role === "user" &&
+            //     user.username !== savedUsername;
 
 
             if (!active) {
@@ -1044,23 +1044,21 @@ function renderUsers(users, emptyText) {
                         View
                     </button>
 
-                    ${canManage ? `
-                        <button
-                            type="button"
-                            class="edit-button"
-                            data-action="password"
-                        >
-                            Change Password
-                        </button>
+                    <button
+                        type="button"
+                        class="${active ? "delete-button" : "enable-button"}"
+                        data-action="toggle"
+                    >
+                        ${active ? "Disable" : "Enable"}
+                    </button>
 
-                        <button
-                            type="button"
-                            class="${active ? "delete-button" : "enable-button"}"
-                            data-action="toggle"
-                        >
-                            ${active ? "Disable" : "Enable"}
-                        </button>
-                    ` : ""}
+                    <button
+                        type="button"
+                        class="edit-button"
+                        data-action="password"
+                    >
+                        Change Password
+                    </button>
                 </td>
             `;
 
@@ -1074,27 +1072,45 @@ function renderUsers(users, emptyText) {
                     }
                 );
 
+            row
+                .querySelector('[data-action="password"]')
+                .addEventListener(
+                    "click",
+                    function () {
+                        openPasswordModal(user);
+                    }
+                );
 
-            if (canManage) {
+            row
+                .querySelector('[data-action="toggle"]')
+                .addEventListener(
+                    "click",
+                    function () {
+                        setUserActive(user, !active);
+                    }
+                );
 
-                row
-                    .querySelector('[data-action="password"]')
-                    .addEventListener(
-                        "click",
-                        function () {
-                            openPasswordModal(user);
-                        }
-                    );
 
-                row
-                    .querySelector('[data-action="toggle"]')
-                    .addEventListener(
-                        "click",
-                        function () {
-                            setUserActive(user, !active);
-                        }
-                    );
-            }
+            // if (canManage) {
+
+            //     row
+            //         .querySelector('[data-action="password"]')
+            //         .addEventListener(
+            //             "click",
+            //             function () {
+            //                 openPasswordModal(user);
+            //             }
+            //         );
+
+            //     row
+            //         .querySelector('[data-action="toggle"]')
+            //         .addEventListener(
+            //             "click",
+            //             function () {
+            //                 setUserActive(user, !active);
+            //             }
+            //         );
+            // }
 
 
             usersTableBody.appendChild(
