@@ -129,7 +129,8 @@ searchInput.addEventListener(
     function (event) {
 
         if (event.key === "Enter") {
-            searchContacts();
+            event.preventDefault();
+            runNewSearch();
         }
     }
 );

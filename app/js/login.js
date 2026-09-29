@@ -44,13 +44,25 @@ loginForm.addEventListener("submit", async function (event) {
             username
         );
 
+        // Save role so pages know whether to show admin features.
+        // Admins and users share this login page.
+        const role = getLoginRole(data);
+
+        sessionStorage.setItem(
+            "role",
+            role
+        );
+
         showMessage(
             "Login successful.",
             "success"
         );
 
-        // Redirect to main contact page
-        window.location.href = "contacts.html";
+        // Admins go to the dashboard, everyone else to contacts
+        window.location.href =
+            role === "admin"
+                ? "admin.html"
+                : "contacts.html";
 
     } catch (error) {
 
@@ -68,6 +80,34 @@ loginForm.addEventListener("submit", async function (event) {
         loginButton.textContent = "Sign In";
     }
 });
+
+
+/*
+ * Read the role from the login response.
+ *
+ * CONFIRM with the backend which field it returns. This handles
+ * several likely forms; anything else is treated as a regular user.
+ */
+function getLoginRole(data) {
+    const source =
+        (data && (data.user || data.data)) || data || {};
+
+    const role = source.role || data.role;
+
+    const isAdmin =
+        source.is_admin ?? data.is_admin;
+
+    if (
+        role === "admin" ||
+        isAdmin === true ||
+        isAdmin === 1 ||
+        isAdmin === "1"
+    ) {
+        return "admin";
+    }
+
+    return "user";
+}
 
 
 function showMessage(text, type) {

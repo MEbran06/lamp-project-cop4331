@@ -1,0 +1,100 @@
+/* Admin dashboard — loaded after styles.css */
+
+.modal-description {
+    color: #6b7280;
+    margin: -12px 0 16px;
+}
+
+.form-row {
+    display: flex;
+    gap: 12px;
+}
+
+.form-row .form-group {
+    flex: 1;
+    min-width: 0;
+}
+
+.field-hint {
+    display: block;
+    margin-top: 6px;
+    font-size: 13px;
+    color: #6b7280;
+}
+
+.form-group input:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 1px;
+    border-color: #2563eb;
+}
+
+.form-group input[aria-invalid="true"] {
+    border-color: #b91c1c;
+}
+
+.modal-actions .primary-button:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
+.role-badge {
+    display: inline-block;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: bold;
+}
+
+.role-user {
+    background: #e5e7eb;
+    color: #374151;
+}
+
+.role-admin {
+    background: #e0e7ff;
+    color: #3730a3;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: bold;
+}
+
+.status-active {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.status-disabled {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+/* Grey out a disabled user's details, but keep the Enable button readable */
+.user-disabled td:not(.action-buttons) {
+    color: #9ca3af;
+}
+
+.enable-button {
+    border: none;
+    background: #dcfce7;
+    color: #15803d;
+    padding: 7px 11px;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.no-actions {
+    color: #9ca3af;
+}
+
+@media (max-width: 480px) {
+
+    .form-row {
+        flex-direction: column;
+        gap: 0;
+    }
+}
