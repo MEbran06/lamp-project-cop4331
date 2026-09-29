@@ -435,3 +435,193 @@ input {
         transition: none;
     }
 }
+
+.auth-page {
+    min-height: 100vh;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    background-color: #f5f6f8;
+
+    padding: 20px;
+}
+
+.auth-container {
+    width: 100%;
+    max-width: 480px;
+
+    background-color: white;
+
+    padding: 40px;
+
+    border-radius: 12px;
+
+    box-shadow:
+        0 4px 18px
+        rgba(0, 0, 0, 0.08);
+}
+
+.auth-logo {
+    text-align: center;
+
+    font-size: 24px;
+    font-weight: bold;
+
+    color: #1f2937;
+
+    margin-bottom: 28px;
+}
+
+.auth-container h1 {
+    text-align: center;
+
+    font-size: 28px;
+
+    color: #1f2937;
+
+    margin-bottom: 8px;
+}
+
+.auth-subtitle {
+    text-align: center;
+
+    color: #6b7280;
+
+    margin-bottom: 30px;
+}
+
+.form-row {
+    display: flex;
+
+    gap: 14px;
+}
+
+.form-row .form-group {
+    flex: 1;
+}
+
+.form-group {
+    margin-bottom: 18px;
+}
+
+.form-group label {
+    display: block;
+
+    font-weight: 600;
+
+    color: #374151;
+
+    margin-bottom: 8px;
+}
+
+.form-group input {
+    width: 100%;
+
+    padding: 12px 13px;
+
+    border:
+        1px solid
+        #d1d5db;
+
+    border-radius: 7px;
+
+    font-size: 15px;
+
+    background-color: white;
+}
+
+.form-group input:focus {
+    outline: none;
+
+    border-color: #2563eb;
+
+    box-shadow:
+        0 0 0 2px
+        rgba(37, 99, 235, 0.1);
+}
+
+.auth-button {
+    width: 100%;
+
+    padding: 13px;
+
+    margin-top: 5px;
+
+    border: none;
+
+    border-radius: 7px;
+
+    background-color: #2563eb;
+
+    color: white;
+
+    font-size: 16px;
+    font-weight: 600;
+
+    cursor: pointer;
+}
+
+.auth-button:hover {
+    background-color: #1d4ed8;
+}
+
+.auth-button:disabled {
+    background-color: #93c5fd;
+
+    cursor: not-allowed;
+}
+
+.auth-footer {
+    text-align: center;
+
+    margin-top: 25px;
+
+    color: #6b7280;
+
+    font-size: 14px;
+}
+
+.auth-footer a {
+    color: #2563eb;
+
+    text-decoration: none;
+
+    font-weight: 600;
+}
+
+.auth-footer a:hover {
+    text-decoration: underline;
+}
+
+.message {
+    min-height: 20px;
+
+    margin-top: 18px;
+
+    text-align: center;
+
+    font-size: 14px;
+}
+
+.message.success {
+    color: #15803d;
+}
+
+.message.error {
+    color: #dc2626;
+}
+
+@media (max-width: 600px) {
+
+    .auth-container {
+        padding: 30px 24px;
+    }
+
+    .form-row {
+        flex-direction: column;
+
+        gap: 0;
+    }
+}
