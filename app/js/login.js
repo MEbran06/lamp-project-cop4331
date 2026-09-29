@@ -50,7 +50,10 @@ loginForm.addEventListener("submit", async function (event) {
         );
 
         // Redirect to main contact page
-        window.location.href = "contacts.html";
+        if (!data.is_admin)
+            window.location.href = "contacts.html";
+        else
+             window.location.href = "admin.html"; // replace with actual admin page
 
     } catch (error) {
 
@@ -59,7 +62,7 @@ loginForm.addEventListener("submit", async function (event) {
         console.error("Login failed:", error);
 
         showMessage(
-            "Login failed. Please check your username and password.",
+            error.message,
             "error"
         );
 

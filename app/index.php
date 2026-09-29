@@ -280,6 +280,8 @@ $router->post("/admin/search", function($request) {
             User.firstname AS user_fname, 
             User.lastname AS user_lname, 
             User.username AS user_uname, 
+            User.is_enabled AS user_enabled,
+            User.is_elevated AS user_admin,
             CASE
                 WHEN COUNT(Contact.userid) = 0 THEN JSON_ARRAY()
                 ELSE JSON_ARRAYAGG(
@@ -346,6 +348,8 @@ $router->get("/admin/search/{id}", function($request) {
             User.firstname AS user_fname, 
             User.lastname AS user_lname, 
             User.username AS user_uname, 
+            User.is_enabled As user_active,
+            User.is_elevated AS user_admin,
             CASE
                 WHEN COUNT(Contact.userid) = 0 THEN JSON_ARRAY()
                 ELSE JSON_ARRAYAGG(
