@@ -5,7 +5,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My Contacts</title>
-    <link rel="stylesheet" href="css/styles.css">
+    <link
+        rel="stylesheet"
+        href="css/styles.css"
+    >
+
+    <link
+        rel="stylesheet"
+        href="css/styles.css"
+    >
 </head>
 
 <body>
@@ -64,16 +72,34 @@
                     </button>
                 </div>
 
-                <!-- Search -->
-                <div class="search-container">
-                    <input type="text" id="searchInput" placeholder="Search contacts...">
-                    <button id="searchButton" class="primary-button">
-                        Search
-                    </button>
-                </div>
+            <!-- Search -->
 
-                <!-- Status message -->
-                <div id="pageMessage" class="page-message"></div>
+            <div class="search-container">
+
+                <input
+                    type="text"
+                    id="searchInput"
+                    placeholder="Search contacts..."
+                >
+
+                <button
+                    id="searchButton"
+                    class="primary-button"
+                >
+                    Search
+                </button>
+
+            </div>
+
+
+            <!-- Status message -->
+
+            <div
+                id="pageMessage"
+                class="page-message"
+                role="status"
+            ></div>
+
 
                 <!-- Contacts table -->
                 <div class="contacts-table-container">
@@ -98,9 +124,36 @@
                     </table>
                 </div>
 
-            </section>
-        </main>
-    </div>
+        </section>
+
+    </main>
+
+</div>
+
+<!-- Results summary + pagination (NEW) -->
+ 
+            <div class="results-footer">
+ 
+                <p
+                    id="resultsSummary"
+                    class="results-summary"
+                    aria-live="polite"
+                ></p>
+ 
+                <nav
+                    id="pagination"
+                    class="pagination"
+                    aria-label="Contact pages"
+                    hidden
+                ></nav>
+ 
+            </div>
+ 
+        </section>
+ 
+    </main>
+ 
+</div>
 
     <!-- Add/Edit Contact Modal -->
     <div id="contactModal" class="modal hidden">
@@ -157,8 +210,13 @@
         </div>
     </div>
 
-    <script src="js/api.js"></script>
-    <script src="js/contacts.js"></script>
+</div>
+
+
+<script src="js/api.js"></script>
+<script src="js/pagination.js"></script>
+<script src="js/contacts.js"></script>
+
 </body>
 
 </html>
