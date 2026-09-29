@@ -53,7 +53,7 @@ loginForm.addEventListener("submit", async function (event) {
         if (!data.is_admin)
             window.location.href = "contacts.html";
         else
-             window.location.href = "admin.html";
+             window.location.href = "admin.html"; // replace with actual admin page
 
     } catch (error) {
 
