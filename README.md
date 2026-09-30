@@ -14,6 +14,12 @@ This project was developed with assistance from generative AI tools.
 - **Scope:** Async fetch request to the CSRF token endpoint
 - **Use:** Generated a JavaScript function that calls the API to get the CSRF token of an authenticated user.
 
+### GPT-5.6 Sol (OpenAI, chatgpt.com)
+
+- **Dates:** September 23, 2026
+- **Scope:** Shared styling for the frontend pages
+- **Use:** Created a reusable CSS file to control various aspects across login, registration, and contact management pages.
+
 ### Claude Opus 5.5 (Anthropic, claude.ai)
 
 - **Dates:** September 28–29, 2026
